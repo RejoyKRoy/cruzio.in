@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cruzio - Self Drive Car Rental</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'cruzio-blue': '#0f2744',
+                        'cruzio-blue-light': '#1a3a5c',
+                        'cruzio-orange': '#f97316',
+                        'cruzio-orange-dark': '#ea580c',
+                    },
+                    fontFamily: {
+                        'display': ['Space Grotesk', 'sans-serif'],
+                        'body': ['Poppins', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --bg: #ffffff;
+            --fg: #0f2744;
+            --muted: #64748b;
+            --accent: #f97316;
+            --card: #f8fafc;
+            --border: #e2e8f0;
+            --gradient-start: #0f2744;
+            --gradient-end: #1e3a5f;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--card); }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+        @keyframes slide-up { 
+            from { opacity: 0; transform: translateY(40px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        .animate-slide-up { animation: slide-up 0.8s ease-out forwards; }
+        .reveal { opacity: 0; }
+        .reveal.active { opacity: 1; }
+
+        .hero-bg {
+            background: linear-gradient(135deg, var(--gradient-start) 0%, var(--gradient-end) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .hero-bg::before {
+            content: '';
+            position: absolute;
+            top: -50%; right: -20%;
+            width: 80%; height: 150%;
+            background: radial-gradient(ellipse, rgba(249, 115, 22, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent) 0%, #ea580c 100%);
+            color: white;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(249, 115, 22, 0.4); }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--fg);
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid var(--border);
+            cursor: pointer;
+        }
+        .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+        .car-card {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.4s ease;
+            border: 1px solid var(--border);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .car-card:hover { transform: translateY(-8px); box-shadow: 0 25px 50px rgba(15, 39, 68, 0.15); }
+
+        .carousel-container { position: relative; overflow: hidden; }
+        .carousel-track { display: flex; transition: transform 0.5s ease; }
+        .carousel-slide { min-width: 100%; aspect-ratio: 16/10; object-fit: cover; }
+
+        .carousel-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 255, 255, 0.9);
+            border: none;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+        .carousel-btn:hover { background: var(--accent); color: white; }
+        .carousel-btn.prev { left: 8px; }
+        .carousel-btn.next { right: 8px; }
+
+        .carousel-dots {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 6px;
+        }
+        .carousel-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .carousel-dot.active { background: var(--accent); width: 20px; border-radius: 4px; }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(15, 39, 68, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            max-width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 1001;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.4s ease;
+            position: relative;
+        }
+        .modal-overlay.active .modal-content { opacity: 1; transform: scale(1); }
+
+        .form-input {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            background: var(--card);
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            background: white;
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+        }
+        .form-label { display: block; margin-bottom: 6px; font-weight: 500; color: var(--fg); font-size: 14px; }
+
+        .nav-link {
+            position: relative;
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 8px 12px;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 50%;
+            width: 0; height: 2px;
+            background: var(--accent);
+            transition: all 0.3s ease;
+            transform: translateX(-50%);
+        }
+        .nav-link:hover::after { width: 100%; }
+        .nav-link:hover { color: var(--accent); }
+
+        .mobile-menu {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: var(--gradient-start);
+            z-index: 999;
+            transform: translateX(-100%);
+            transition: transform 0.4s ease;
+        }
+        .mobile-menu.active { transform: translateX(0); }
+
+        .filter-pill {
+            padding: 8px 16px;
+            border-radius: 50px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .filter-pill:hover, .filter-pill.active { border-color: var(--accent); background: var(--accent); color: white; }
+
+        .stat-number {
+            font-size: clamp(1.75rem, 4vw, 3rem);
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent) 0%, #fbbf24 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .policy-list li {
+            position: relative;
+            padding-left: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+        .policy-list.do-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #16a34a;
+            font-weight: bold;
+        }
+        .policy-list.dont-list li::before {
+            content: '✕';
+            position: absolute;
+            left: 0;
+            color: #dc2626;
+            font-weight: bold;
+        }
+        
+        /* Professional Policy Content Styles */
+        .policy-content h3 { font-size: 1.25rem; font-weight: 700; color: #0f2744; margin-top: 1.5rem; margin-bottom: 0.75rem; }
+        .policy-content p { margin-bottom: 1rem; line-height: 1.7; }
+        .policy-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Navigation -->
+    <nav id="navbar" class="fixed top-0 left-0 w-full z-50 transition-all duration-500">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <a href="#" class="flex items-center" aria-label="Cruzio Home">
+                    <!-- Logo Replaced -->
+                    <img src="https://z-cdn-media.chatglm.cn/files/226d3392-fba3-4d31-a54d-f9f7a4f2f18a.png?auth_key=1871329868-adf15069c5a24b62bd97efb89b7da1a5-0-c52e9c922327b1e0e28b1304f50f1b26" alt="Cruzio Logo" class="h-14 md:h-16 w-auto object-contain">
+                </a>
+
+                <div class="hidden lg:flex items-center gap-6">
+                    <a href="#cars" class="nav-link">Browse Cars</a>
+                    <a href="#how-it-works" class="nav-link">How It Works</a>
+                    <a href="#attach-car" class="nav-link">Attach Your Car</a>
+                    <a href="#" onclick="openModal('policyModal')" class="nav-link">Policies</a>
+                </div>
+
+                <div class="hidden lg:flex items-center gap-3">
+                    <button class="btn-secondary" onclick="openModal('loginModal')">Login</button>
+                    <button class="btn-primary" onclick="openModal('signupModal')">Sign Up</button>
+                </div>
+
+                <button id="mobileMenuBtn" class="lg:hidden p-2" aria-label="Open Menu">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div id="mobileMenu" class="mobile-menu">
+        <div class="p-6 h-full flex flex-col">
+            <div class="flex justify-between items-center mb-12">
+                <img src="https://z-cdn-media.chatglm.cn/files/226d3392-fba3-4d31-a54d-f9f7a4f2f18a.png?auth_key=1871329868-adf15069c5a24b62bd97efb89b7da1a5-0-c52e9c922327b1e0e28b1304f50f1b26" alt="Cruzio Logo" class="h-12 w-auto">
+                <button id="closeMobileMenu" class="p-2" aria-label="Close Menu">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex flex-col gap-6">
+                <a href="#cars" class="text-white text-xl font-medium" onclick="closeMobileMenu()">Browse Cars</a>
+                <a href="#how-it-works" class="text-white text-xl font-medium" onclick="closeMobileMenu()">How It Works</a>
+                <a href="#attach-car" class="text-white text-xl font-medium" onclick="closeMobileMenu()">Attach Your Car</a>
+                <a href="#" onclick="openModal('policyModal'); closeMobileMenu();" class="text-white text-xl font-medium">Policies</a>
+                <hr class="border-white/20 my-4">
+                <button class="btn-secondary w-full" onclick="openModal('loginModal'); closeMobileMenu();">Login</button>
+                <button class="btn-primary w-full" onclick="openModal('signupModal'); closeMobileMenu();">Sign Up</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero-bg min-h-screen flex items-center pt-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 relative z-10 w-full">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="text-white reveal active animate-slide-up text-center lg:text-left">
+                    <span class="inline-block px-4 py-2 bg-white/10 backdrop-blur rounded-full text-sm font-medium mb-6">Self Drive Car Rental</span>
+                    <h1 class="font-display font-bold leading-tight mb-6">Your Journey,<br><span class="text-cruzio-orange">Your Freedom</span></h1>
+                    <p class="text-lg text-white/80 mb-8 max-w-lg mx-auto lg:mx-0">Rent cars by the hour, day, week or month. Zero hidden charges, unlimited kilometers, and 24/7 roadside assistance.</p>
+                    <div class="flex flex-wrap gap-4 justify-center lg:justify-start">
+                        <a href="#cars" class="btn-primary text-lg">Browse Cars</a>
+                        <a href="#how-it-works" class="btn-secondary text-lg bg-white/10 border-white/30 text-white hover:bg-white/20">Learn More</a>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl p-6 sm:p-8 reveal active animate-slide-up w-full max-w-md mx-auto lg:max-w-none">
+                    <h2 class="font-display text-2xl font-bold text-cruzio-blue mb-6 text-center lg:text-left">Find Your Perfect Ride</h2>
+                    <form id="searchForm" class="space-y-5">
+                        <div>
+                            <label class="form-label">Pickup Location</label>
+                            <select id="heroCity" class="form-input" required>
+                                <option value="" disabled selected>Select City</option>
+                                <option value="Chennai">Chennai</option>
+                                <option value="Mumbai">Mumbai</option>
+                                <option value="Delhi">Delhi</option>
+                                <option value="Bangalore">Bangalore</option>
+                                <option value="Hyderabad">Hyderabad</option>
+                                <option value="Pune">Pune</option>
+                                <option value="Kolkata">Kolkata</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="form-label">Pickup Date</label><input type="date" class="form-input" required></div>
+                            <div><label class="form-label">Return Date</label><input type="date" class="form-input" required></div>
+                        </div>
+                        <button type="submit" class="btn-primary w-full text-lg py-4">Search Available Cars</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="py-12 md:py-16 bg-cruzio-blue relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+                <div class="reveal"><div class="stat-number" data-target="50">0</div><p class="text-white/70 mt-2 text-sm md:text-base">Cities</p></div>
+                <div class="reveal"><div class="stat-number" data-target="10000">0</div><p class="text-white/70 mt-2 text-sm md:text-base">Cars Available</p></div>
+                <div class="reveal"><div class="stat-number" data-target="500000">0</div><p class="text-white/70 mt-2 text-sm md:text-base">Happy Customers</p></div>
+                <div class="reveal"><div class="stat-number" data-target="24">0</div><p class="text-white/70 mt-2 text-sm md:text-base">Hour Support</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cars Listing Section -->
+    <section id="cars" class="py-16 md:py-24 bg-white relative">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between mb-12 gap-6">
+                <div class="reveal text-center md:text-left">
+                    <span class="inline-block px-4 py-2 bg-cruzio-orange/10 text-cruzio-orange rounded-full text-sm font-medium mb-4">Our Fleet</span>
+                    <h2 class="font-display font-bold text-cruzio-blue mb-2">Available Cars</h2>
+                    <p class="text-gray-600">Currently available in Chennai</p>
+                </div>
+
+                <div class="flex flex-wrap gap-3 justify-center md:justify-end reveal">
+                    <button class="filter-pill active" data-filter="all">All</button>
+                    <button class="filter-pill" data-filter="suv">SUV</button>
+                    <button class="filter-pill" data-filter="hatchback">Hatchback</button>
+                    <button class="filter-pill" data-filter="diesel">Diesel</button>
+                    <button class="filter-pill" data-filter="petrol">Petrol</button>
+                </div>
+            </div>
+
+            <div id="carsGrid" class="grid grid-cols-1 md:grid-cols-2 gap-8"></div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-16 md:py-24 bg-gray-50 relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="text-center mb-16 reveal">
+                <span class="inline-block px-4 py-2 bg-cruzio-orange/10 text-cruzio-orange rounded-full text-sm font-medium mb-4">Simple Process</span>
+                <h2 class="font-display font-bold text-cruzio-blue mb-4">How Cruzio Works</h2>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
+                <div class="text-center reveal"><div class="w-16 h-16 md:w-20 md:h-20 bg-cruzio-blue rounded-2xl flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-cruzio-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div><h3 class="font-display text-lg font-semibold mb-2">Search</h3></div>
+                <div class="text-center reveal"><div class="w-16 h-16 md:w-20 md:h-20 bg-cruzio-blue rounded-2xl flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-cruzio-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div><h3 class="font-display text-lg font-semibold mb-2">Book</h3></div>
+                <div class="text-center reveal"><div class="w-16 h-16 md:w-20 md:h-20 bg-cruzio-blue rounded-2xl flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-cruzio-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg></div><h3 class="font-display text-lg font-semibold mb-2">Unlock</h3></div>
+                <div class="text-center reveal"><div class="w-16 h-16 md:w-20 md:h-20 bg-cruzio-blue rounded-2xl flex items-center justify-center mx-auto mb-4"><svg class="w-8 h-8 text-cruzio-orange" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div><h3 class="font-display text-lg font-semibold mb-2">Drive</h3></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Attach Your Car Section -->
+    <section id="attach-car" class="py-16 md:py-24 bg-white relative overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+            <div class="grid lg:grid-cols-2 gap-12 items-center">
+                <div class="reveal text-center lg:text-left">
+                    <span class="inline-block px-4 py-2 bg-cruzio-orange/10 text-cruzio-orange rounded-full text-sm font-medium mb-4">Partner With Us</span>
+                    <h2 class="font-display font-bold text-cruzio-blue mb-6">Attach Your Car to Cruzio</h2>
+                    <p class="text-gray-600 mb-6">Turn your idle car into a money-making asset. Join thousands of car owners who earn passive income.</p>
+                </div>
+
+                <div class="bg-gray-50 rounded-2xl p-6 md:p-8 reveal w-full max-w-md mx-auto lg:max-w-none">
+                    <h3 class="font-display text-2xl font-bold text-cruzio-blue mb-6 text-center lg:text-left">Register Your Car</h3>
+                    <form id="attachCarForm" class="space-y-5">
+                        <div class="grid sm:grid-cols-2 gap-5">
+                            <div><label class="form-label">Full Name</label><input type="text" class="form-input" placeholder="John Doe" required></div>
+                            <div><label class="form-label">Phone Number</label><input type="tel" class="form-input" placeholder="+91 98765 43210" required></div>
+                        </div>
+                        <div><label class="form-label">Email Address</label><input type="email" class="form-input" placeholder="john@example.com" required></div>
+                        <div class="grid sm:grid-cols-2 gap-5">
+                            <div><label class="form-label">Car Model</label><input type="text" class="form-input" placeholder="e.g., Maruti Swift" required></div>
+                            <div><label class="form-label">City</label><select id="attachCity" class="form-input" required>
+                                <option value="">Select City</option>
+                                <option value="Chennai">Chennai</option>
+                                <option value="Mumbai">Mumbai</option>
+                                <option value="Delhi">Delhi</option>
+                                <option value="Bangalore">Bangalore</option>
+                                <option value="Hyderabad">Hyderabad</option>
+                                <option value="Pune">Pune</option>
+                                <option value="Kolkata">Kolkata</option>
+                            </select></div>
+                        </div>
+                        <button type="submit" class="btn-primary w-full py-4 text-lg">Submit Application</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-cruzio-blue text-white py-12 md:py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+                <div class="col-span-2 md:col-span-1 text-center md:text-left">
+                    <img src="https://z-cdn-media.chatglm.cn/files/226d3392-fba3-4d31-a54d-f9f7a4f2f18a.png?auth_key=1871329868-adf15069c5a24b62bd97efb89b7da1a5-0-c52e9c922327b1e0e28b1304f50f1b26" alt="Cruzio Logo" class="h-10 mb-4 mx-auto md:mx-0">
+                    <p class="text-white/60 text-sm">Currently serving Chennai.<br>Expanding to more cities soon.</p>
+                </div>
+                <div class="text-center md:text-left"><h4 class="font-semibold mb-4">Quick Links</h4><ul class="space-y-2 text-sm"><li><a href="#cars" class="text-white/60 hover:text-cruzio-orange transition-colors">Browse Cars</a></li><li><a href="#attach-car" class="text-white/60 hover:text-cruzio-orange transition-colors">Attach Car</a></li></ul></div>
+                <div class="text-center md:text-left"><h4 class="font-semibold mb-4">Policies</h4><ul class="space-y-2 text-sm">
+                    <li><a href="#" onclick="openModal('termsModal')" class="text-white/60 hover:text-cruzio-orange transition-colors">Terms & Conditions</a></li>
+                    <li><a href="#" onclick="openModal('privacyModal')" class="text-white/60 hover:text-cruzio-orange transition-colors">Privacy Policy</a></li>
+                    <li><a href="#" onclick="openModal('policyModal')" class="text-white/60 hover:text-cruzio-orange transition-colors">Rental Guidelines</a></li>
+                </ul></div>
+                <div class="text-center md:text-left"><h4 class="font-semibold mb-4">Contact</h4><ul class="space-y-2 text-sm text-white/60"><li>+91-9150133387</li><li>+91-9605370108</li></ul></div>
+            </div>
+            <div class="border-t border-white/10 pt-8 text-center text-white/40 text-sm"><p>2024 Cruzio. All rights reserved.</p></div>
+        </div>
+    </footer>
+
+    <!-- Modals -->
+
+    <!-- Coming Soon Modal (Non-Chennai Locations) -->
+    <div id="comingSoonModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-lg p-8 text-center">
+            <div class="w-16 h-16 bg-cruzio-blue/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-8 h-8 text-cruzio-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <h2 class="font-display text-2xl font-bold text-cruzio-blue mb-3">We Will Be Here Soon!</h2>
+            <p class="text-gray-600 mb-2">We are currently operational only in <strong>Chennai</strong>.</p>
+            <p class="text-gray-600 mb-6">We are expanding rapidly. We invite you to collaborate with us and become a partner to operate on a <strong>Revenue Sharing Model</strong> in your city.</p>
+            
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="closeModal('comingSoonModal')" class="btn-secondary">Close</button>
+                <a href="#attach-car" onclick="closeModal('comingSoonModal')" class="btn-primary">
+                    Become a Partner
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Booking Form Modal -->
+    <div id="bookingModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-lg p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-display text-2xl font-bold text-cruzio-blue">Guest Details</h2>
+                <button onclick="closeModal('bookingModal')" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200" aria-label="Close modal">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <p class="text-gray-600 mb-6">Please provide your details to proceed with the booking for <span id="selectedCarName" class="font-semibold text-cruzio-blue"></span></p>
+            <form id="guestForm" class="space-y-5">
+                <div><label class="form-label">Full Name</label><input type="text" id="guestName" class="form-input" placeholder="John Doe" required></div>
+                <div><label class="form-label">Phone Number</label><input type="tel" id="guestPhone" class="form-input" placeholder="+91 98765 43210" required></div>
+                <div><label class="form-label">Driving License Number</label><input type="text" id="guestDL" class="form-input" placeholder="TN01 20230001234" required></div>
+                <button type="submit" class="btn-primary w-full py-4 text-lg">Submit & View Contact</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contact Display Modal -->
+    <div id="contactModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-lg p-8 text-center">
+            <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h2 class="font-display text-2xl font-bold text-cruzio-blue mb-2">Booking Request Received</h2>
+            <p class="text-gray-600 mb-6">Thank you! Please call us at the numbers below to confirm your booking.</p>
+            
+            <div class="bg-gray-50 rounded-xl p-6 mb-6">
+                <p class="text-sm text-gray-500 mb-2">Contact Numbers</p>
+                <a href="tel:+919150133387" class="block text-3xl font-bold text-cruzio-orange mb-4 hover:underline">+91-9150133387</a>
+                <a href="tel:+919605370108" class="block text-3xl font-bold text-cruzio-orange hover:underline">+91-9605370108</a>
+            </div>
+            
+            <button onclick="closeModal('contactModal')" class="btn-primary w-full py-3">Done</button>
+        </div>
+    </div>
+
+    <!-- Terms & Conditions Modal -->
+    <div id="termsModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-3xl p-8">
+            <div class="flex justify-between items-start mb-6">
+                <h2 class="font-display text-2xl font-bold text-cruzio-blue">Terms and Conditions</h2>
+                <button onclick="closeModal('termsModal')" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200" aria-label="Close modal">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="policy-content prose prose-sm max-h-[60vh] overflow-y-auto text-gray-600">
+                <h3>1. Acceptance of Terms</h3>
+                <p>By accessing or using Cruzio's services ("Service"), you agree to be bound by these Terms and Conditions ("Terms"). If you do not agree with any part of these terms, you may not use our services.</p>
+                
+                <h3>2. Eligibility</h3>
+                <p>To rent a vehicle from Cruzio, you must meet the following criteria:</p>
+                <ul>
+                    <li>Be at least 21 years of age.</li>
+                    <li>Hold a valid driving license for at least 1 year.</li>
+                    <li>Provide valid government-issued ID proof (Aadhar, PAN, or Passport).</li>
+                    <li>Have a valid credit/debit card for payment.</li>
+                </ul>
+
+                <h3>3. Booking and Payment</h3>
+                <p>All bookings must be made through our website or mobile app. Payment is required at the time of booking. We accept all major credit cards, debit cards, and UPI payments. Prices are inclusive of all taxes unless stated otherwise.</p>
+
+                <h3>4. Vehicle Usage</h3>
+                <p>The rented vehicle may only be used for lawful purposes within the territorial limits of India. The following activities are strictly prohibited:</p>
+                <ul>
+                    <li>Sub-renting the vehicle to third parties.</li>
+                    <li>Using the vehicle for racing or competitive events.</li>
+                    <li>Transporting illegal substances or contraband.</li>
+                    <li>Towing or pushing other vehicles.</li>
+                    <li>Driving under the influence of alcohol or drugs.</li>
+                </ul>
+
+                <h3>5. Fuel Policy</h3>
+                <p>Vehicles are provided with a full tank of fuel and must be returned with a full tank. If the vehicle is returned with less fuel, refueling charges plus a service fee will apply.</p>
+
+                <h3>6. Damage and Insurance</h3>
+                <p>All our vehicles are covered by comprehensive insurance. In case of an accident, the renter is liable for a maximum of Rs. 10,000 as damages. For damages exceeding this amount, insurance will cover the costs subject to policy terms and conditions.</p>
+
+                <h3>7. Modification of Terms</h3>
+                <p>Cruzio reserves the right to modify these terms at any time. Continued use of our services after modifications constitutes acceptance of the updated terms.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Privacy Policy Modal -->
+    <div id="privacyModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-3xl p-8">
+            <div class="flex justify-between items-start mb-6">
+                <h2 class="font-display text-2xl font-bold text-cruzio-blue">Privacy Policy</h2>
+                <button onclick="closeModal('privacyModal')" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200" aria-label="Close modal">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="policy-content prose prose-sm max-h-[60vh] overflow-y-auto text-gray-600">
+                <h3>1. Information We Collect</h3>
+                <p>We collect the following types of information to provide you with a seamless rental experience:</p>
+                <ul>
+                    <li><strong>Personal Information:</strong> Name, email address, phone number, date of birth, and driving license details.</li>
+                    <li><strong>Payment Information:</strong> Credit/debit card details (stored securely with PCI-compliant processors).</li>
+                    <li><strong>Location Data:</strong> GPS data during the rental period for vehicle tracking and safety.</li>
+                    <li><strong>Usage Data:</strong> Browsing history, booking preferences, and app usage patterns.</li>
+                </ul>
+
+                <h3>2. How We Use Your Information</h3>
+                <p>Your information is used for the following purposes:</p>
+                <ul>
+                    <li>Processing bookings and payments securely.</li>
+                    <li>Verifying identity and driving credentials.</li>
+                    <li>Providing roadside assistance and support.</li>
+                    <li>Sending booking confirmations, updates, and promotional communications (with your consent).</li>
+                    <li>Improving our services and user experience through analytics.</li>
+                </ul>
+
+                <h3>3. Data Sharing</h3>
+                <p>We do not sell your personal information. We may share your data with trusted third parties under the following circumstances:</p>
+                <ul>
+                    <li>Payment processors for transaction processing.</li>
+                    <li>Insurance companies for claims processing.</li>
+                    <li>Law enforcement agencies when required by law.</li>
+                    <li>Service providers who assist in our operations (e.g., maintenance, cleaning).</li>
+                </ul>
+
+                <h3>4. Data Security</h3>
+                <p>We implement industry-standard security measures including SSL encryption, firewalls, and secure data centers to protect your information from unauthorized access, alteration, or destruction.</p>
+
+                <h3>5. Your Rights</h3>
+                <p>You have the right to access, correct, or delete your personal data. You may also opt-out of marketing communications at any time. For any privacy-related inquiries, contact us at privacy@cruzio.in.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rental Guidelines Policy Modal -->
+    <div id="policyModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-3xl p-8">
+            <div class="flex justify-between items-start mb-6">
+                <h2 class="font-display text-2xl font-bold text-cruzio-blue">Rental Guidelines & Policies</h2>
+                <button onclick="closeModal('policyModal')" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200" aria-label="Close modal">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="policy-content prose prose-sm max-h-[60vh] overflow-y-auto text-gray-600">
+                
+                <h3>Vehicle Usage Policy</h3>
+                <p>Thank you for choosing Cruzio. To ensure a smooth and enjoyable experience for all guests, please adhere to the following guidelines:</p>
+
+                <h4 class="text-md font-semibold text-green-700 mt-4 mb-2">Do's</h4>
+                <ul class="policy-list do-list text-gray-600 mb-4">
+                    <li>Carry a valid driving license and booking documents at pickup.</li>
+                    <li>Inspect the vehicle at pickup and inform us immediately if you notice any issue.</li>
+                    <li>Drive responsibly and follow all traffic rules.</li>
+                    <li>Return the vehicle with the same fuel level as at pickup.</li>
+                    <li>Maintain cleanliness inside the vehicle.</li>
+                    <li>Inform us immediately in case of any incident or breakdown.</li>
+                    <li>Return the vehicle with the FASTag balance maintained at the same amount as at pickup, or settle toll deductions at return.</li>
+                </ul>
+
+                <h4 class="text-md font-semibold text-red-700 mt-4 mb-2">Don'ts</h4>
+                <ul class="policy-list dont-list text-gray-600 mb-4">
+                    <li>Allow unauthorized persons to drive the vehicle.</li>
+                    <li>Engage in rash driving, racing, or off-road usage.</li>
+                    <li>Smoke or drink inside the vehicle.</li>
+                    <li>Drive through waterlogged or extreme terrain areas.</li>
+                    <li>Overload beyond permitted passenger capacity.</li>
+                    <li>Carry items or pets that may damage interiors unless informed in advance.</li>
+                    <li>Exceed 100 km/h speed. Exceeding this limit may attract a penalty.</li>
+                </ul>
+
+                <h3>Usage Limit</h3>
+                <p>Daily usage limit: <strong>350 km per day</strong>. Additional usage will be charged at <strong>₹10 per km</strong> beyond the limit.</p>
+
+                <hr class="my-6">
+
+                <h3>Cancellation Charges</h3>
+                <table class="w-full text-sm mb-4">
+                    <thead><tr class="border-b"><th class="text-left py-2">Time Before Pickup</th><th class="text-right py-2">Fee</th></tr></thead>
+                    <tbody>
+                        <tr class="border-b"><td class="py-2">More than 24 hours</td><td class="text-right py-2">No charge</td></tr>
+                        <tr class="border-b"><td class="py-2">12-24 hours</td><td class="text-right py-2">25% of booking</td></tr>
+                        <tr><td class="py-2">Less than 12 hours</td><td class="text-right py-2">100% of booking</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login/Signup Modals (Kept minimal for brevity in this block) -->
+    <div id="loginModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-md p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-display text-2xl font-bold text-cruzio-blue">Welcome Back</h2>
+                <button onclick="closeModal('loginModal')" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200" aria-label="Close modal">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form class="space-y-5">
+                <div><label class="form-label">Email or Phone</label><input type="text" class="form-input" placeholder="Enter email or phone number"></div>
+                <div><label class="form-label">Password</label><input type="password" class="form-input" placeholder="Enter password"></div>
+                <button type="submit" class="btn-primary w-full py-3">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="signupModal" class="modal-overlay" role="dialog" aria-modal="true">
+        <div class="modal-content w-full max-w-md p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-display text-2xl font-bold text-cruzio-blue">Create Account</h2>
+                <button onclick="closeModal('signupModal')" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200" aria-label="Close modal">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <form class="space-y-5">
+                <div><label class="form-label">Full Name</label><input type="text" class="form-input" placeholder="John Doe"></div>
+                <div><label class="form-label">Email</label><input type="email" class="form-input" placeholder="john@example.com"></div>
+                <div><label class="form-label">Phone Number</label><input type="tel" class="form-input" placeholder="+91 98765 43210"></div>
+                <div><label class="form-label">Password</label><input type="password" class="form-input" placeholder="Create a strong password"></div>
+                <button type="submit" class="btn-primary w-full py-3">Create Account</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-xl transform translate-y-32 opacity-0 transition-all duration-300 z-50 text-sm md:text-base">
+        <span id="toastMessage">Success!</span>
+    </div>
+
+    <script>
+        // Data
+        const carsData = [
+            {
+                id: 1,
+                name: 'Mahindra Thar RoXX',
+                year: 2026,
+                type: 'suv',
+                fuel: 'diesel',
+                seats: 5,
+                pricePerDay: 4200,
+                rating: 4.8,
+                reviews: 156,
+                location: 'Chennai',
+                images: [
+                    'https://images.unsplash.com/photo-1519641471654-76ce0107ad1b?w=800&h=500&fit=crop',
+                    'https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=800&h=500&fit=crop',
+                    'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&h=500&fit=crop'
+                ]
+            },
+            {
+                id: 2,
+                name: 'Datsun GO+',
+                year: 2015,
+                type: 'hatchback',
+                fuel: 'petrol',
+                seats: 7,
+                pricePerDay: 1500,
+                rating: 4.2,
+                reviews: 89,
+                location: 'Chennai',
+                images: [
+                    'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&h=500&fit=crop',
+                    'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&h=500&fit=crop',
+                    'https://images.unsplash.com/photo-1550355291-bbee04a92027?w=800&h=500&fit=crop'
+                ]
+            }
+        ];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            renderCars(carsData);
+            initScrollReveal();
+            initCounters();
+            initNavbar();
+            initMobileMenu();
+            initFilters();
+            initForms();
+            initSearchForm();
+        });
+
+        // Render Cars
+        function renderCars(cars) {
+            const grid = document.getElementById('carsGrid');
+            if (!grid) return;
+            
+            grid.innerHTML = cars.map((car, index) => `
+                <div class="car-card reveal" data-type="${car.type}" data-fuel="${car.fuel}">
+                    <div class="carousel-container relative">
+                        <div class="carousel-track" id="carousel-${car.id}">
+                            ${car.images.map((img, i) => `<img src="${img}" alt="${car.name}" class="carousel-slide" loading="lazy">`).join('')}
+                        </div>
+                        <button class="carousel-btn prev" onclick="moveCarousel(${car.id}, -1)" aria-label="Previous image">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                        </button>
+                        <button class="carousel-btn next" onclick="moveCarousel(${car.id}, 1)" aria-label="Next image">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                        </button>
+                        <div class="carousel-dots" id="dots-${car.id}">
+                            ${car.images.map((_, i) => `<span class="carousel-dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${car.id}, ${i})"></span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="p-6 flex flex-col flex-grow">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-display text-lg md:text-xl font-semibold text-cruzio-blue">${car.name}</h3>
+                            <span class="bg-cruzio-orange/10 text-cruzio-orange text-xs font-medium px-2 py-1 rounded-full">${car.type.toUpperCase()}</span>
+                        </div>
+                        <p class="text-gray-500 text-sm mb-4">${car.year} | ${car.fuel.charAt(0).toUpperCase() + car.fuel.slice(1)} | ${car.seats} Seater</p>
+                        <div class="flex items-center gap-2 mb-4">
+                            <div class="flex items-center gap-1">
+                                <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                                <span class="font-semibold text-sm">${car.rating}</span>
+                            </div>
+                            <span class="text-gray-400 text-xs">(${car.reviews} reviews)</span>
+                        </div>
+                        <div class="mt-auto pt-4 border-t border-gray-100 flex justify-between items-center">
+                            <div>
+                                <span class="text-xl md:text-2xl font-bold text-cruzio-blue">Rs ${car.pricePerDay.toLocaleString()}</span>
+                                <span class="text-gray-500 text-xs md:text-sm">/day</span>
+                            </div>
+                            <button onclick="openBookingModal(${car.id})" class="btn-primary text-sm px-4 py-2 md:px-6 md:py-3">Book Now</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            initScrollReveal();
+        }
+
+        // Carousel Logic
+        const carouselPositions = {};
+        function moveCarousel(carId, direction) {
+            const track = document.getElementById(`carousel-${carId}`);
+            const dots = document.getElementById(`dots-${carId}`);
+            if (!track || !dots) return;
+            
+            const slides = track.querySelectorAll('.carousel-slide');
+            const totalSlides = slides.length;
+            
+            if (!carouselPositions[carId]) carouselPositions[carId] = 0;
+            carouselPositions[carId] = (carouselPositions[carId] + direction + totalSlides) % totalSlides;
+            
+            track.style.transform = `translateX(-${carouselPositions[carId] * 100}%)`;
+            
+            dots.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === carouselPositions[carId]);
+            });
+        }
+        
+        function goToSlide(carId, index) {
+            const track = document.getElementById(`carousel-${carId}`);
+            const dots = document.getElementById(`dots-${carId}`);
+            if (!track || !dots) return;
+            
+            carouselPositions[carId] = index;
+            track.style.transform = `translateX(-${index * 100}%)`;
+            
+            dots.querySelectorAll('.carousel-dot').forEach((dot, i) => {
+                dot.classList.toggle('active', i === index);
+            });
+        }
+
+        // Search Form Logic (City Check)
+        function initSearchForm() {
+            const form = document.getElementById('searchForm');
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const city = document.getElementById('heroCity').value;
+                
+                if (city === 'Chennai') {
+                    document.getElementById('cars').scrollIntoView({ behavior: 'smooth' });
+                } else if (city) {
+                    openModal('comingSoonModal');
+                }
+            });
+        }
+
+        // Booking Logic
+        function openBookingModal(carId) {
+            const car = carsData.find(c => c.id === carId);
+            if (!car) return;
+            
+            document.getElementById('selectedCarName').textContent = car.name;
+            openModal('bookingModal');
+        }
+        
+        function initForms() {
+            const guestForm = document.getElementById('guestForm');
+            if(guestForm) {
+                guestForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    closeModal('bookingModal');
+                    openModal('contactModal');
+                });
+            }
+
+            const attachForm = document.getElementById('attachCarForm');
+            if(attachForm) {
+                attachForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const city = document.getElementById('attachCity').value;
+                    
+                    if(city && city !== 'Chennai') {
+                        showToast(`Thank you for your interest! We will contact you regarding partnership opportunities in ${city}.`);
+                    } else {
+                        showToast('Thank you for your interest! We have received your details and will get in touch shortly.');
+                    }
+                    attachForm.reset();
+                });
+            }
+        }
+
+        // Modal Logic
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) closeModal(this.id);
+            });
+        });
+        
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.active').forEach(modal => closeModal(modal.id));
+        });
+
+        // Scroll Reveal
+        function initScrollReveal() {
+            const reveals = document.querySelectorAll('.reveal');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('active');
+                        entry.target.classList.add('animate-slide-up');
+                    }
+                });
+            }, { threshold: 0.1 });
+            
+            reveals.forEach(el => observer.observe(el));
+        }
+
+        // Counters
+        function initCounters() {
+            const counters = document.querySelectorAll('.stat-number');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const target = parseInt(entry.target.dataset.target);
+                        animateCounter(entry.target, target);
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.5 });
+            
+            counters.forEach(counter => observer.observe(counter));
+        }
+
+        function animateCounter(element, target) {
+            let current = 0;
+            const increment = target / 50;
+            const timer = setInterval(() => {
+                current += increment;
+                if (current >= target) {
+                    element.textContent = formatNumber(target);
+                    clearInterval(timer);
+                } else {
+                    element.textContent = formatNumber(Math.floor(current));
+                }
+            }, 40);
+        }
+
+        function formatNumber(num) {
+            if (num >= 100000) return (num / 1000).toFixed(0) + 'K+';
+            return num.toLocaleString() + '+';
+        }
+
+        // Navbar
+        function initNavbar() {
+            const navbar = document.getElementById('navbar');
+            window.addEventListener('scroll', () => {
+                if (window.pageYOffset > 50) {
+                    navbar.classList.add('bg-cruzio-blue', 'shadow-xl');
+                } else {
+                    navbar.classList.remove('bg-cruzio-blue', 'shadow-xl');
+                }
+            });
+        }
+
+        // Mobile Menu
+        function initMobileMenu() {
+            const menuBtn = document.getElementById('mobileMenuBtn');
+            const closeBtn = document.getElementById('closeMobileMenu');
+            const mobileMenu = document.getElementById('mobileMenu');
+            
+            if (menuBtn && mobileMenu) {
+                menuBtn.addEventListener('click', () => mobileMenu.classList.add('active'));
+            }
+            if (closeBtn && mobileMenu) {
+                closeBtn.addEventListener('click', () => mobileMenu.classList.remove('active'));
+            }
+        }
+        function closeMobileMenu() {
+            document.getElementById('mobileMenu').classList.remove('active');
+        }
+
+        // Filters
+        function initFilters() {
+            const pills = document.querySelectorAll('.filter-pill');
+            pills.forEach(pill => {
+                pill.addEventListener('click', () => {
+                    pills.forEach(p => p.classList.remove('active'));
+                    pill.classList.add('active');
+                    
+                    const filter = pill.dataset.filter;
+                    const cards = document.querySelectorAll('.car-card');
+                    
+                    cards.forEach(card => {
+                        const type = card.dataset.type;
+                        const fuel = card.dataset.fuel;
+                        if (filter === 'all' || type === filter || fuel === filter) {
+                            card.style.display = 'flex';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        }
+        
+        // Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = message;
+            toast.classList.remove('translate-y-32', 'opacity-0');
+            
+            setTimeout(() => {
+                toast.classList.add('translate-y-32', 'opacity-0');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
