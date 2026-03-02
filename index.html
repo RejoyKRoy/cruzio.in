@@ -4,765 +4,1519 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cruzio.in | Premium Car Rentals Chennai</title>
-    <!-- Updated: Local Favicon -->
     <link rel="icon" type="image/png" href="./Cruzio favicon.png">
-    
+
+    <!--
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    SUPABASE SQL SETUP — Run this in your Supabase SQL editor
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    -- 1. Cars table
+    create table if not exists cars (
+      id uuid default gen_random_uuid() primary key,
+      name text not null,
+      category text default 'Sedan',
+      price_per_day integer not null,
+      seats integer,
+      image_url text,
+      description text,
+      features text[],
+      is_approved boolean default false,
+      created_at timestamptz default now()
+    );
+
+    -- 2. Bookings table
+    create table if not exists bookings (
+      id uuid default gen_random_uuid() primary key,
+      car_id uuid references cars(id) on delete set null,
+      car_name text not null,
+      customer_name text not null,
+      customer_phone text not null,
+      customer_email text not null,
+      start_date date not null,
+      end_date date not null,
+      total_days integer not null,
+      estimated_price integer not null,
+      message text,
+      status text default 'pending',
+      created_at timestamptz default now()
+    );
+
+    -- 3. Partner inquiries table
+    create table if not exists partner_inquiries (
+      id uuid default gen_random_uuid() primary key,
+      name text not null,
+      phone text not null,
+      email text,
+      vehicle_details text,
+      created_at timestamptz default now()
+    );
+
+    -- 4. RLS Policies
+    alter table cars enable row level security;
+    alter table bookings enable row level security;
+    alter table partner_inquiries enable row level security;
+
+    create policy "Public read approved cars" on cars for select using (is_approved = true or auth.role() = 'authenticated');
+    create policy "Authenticated manage cars" on cars for all using (auth.role() = 'authenticated') with check (auth.role() = 'authenticated');
+
+    create policy "Anyone can book" on bookings for insert with check (true);
+    create policy "Auth read bookings" on bookings for select using (auth.role() = 'authenticated');
+    create policy "Auth update bookings" on bookings for update using (auth.role() = 'authenticated');
+
+    create policy "Anyone can inquire" on partner_inquiries for insert with check (true);
+    create policy "Auth read inquiries" on partner_inquiries for select using (auth.role() = 'authenticated');
+
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    -->
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { display: ['Space Grotesk', 'sans-serif'], body: ['DM Sans', 'sans-serif'] },
-                    colors: {
-                        bg: 'var(--bg)', fg: 'var(--fg)', muted: 'var(--muted)',
-                        accent: 'var(--accent)', card: 'var(--card)', border: 'var(--border)', surface: 'var(--surface)',
-                    }
+                    fontFamily: { display: ['Syne', 'sans-serif'], body: ['DM Sans', 'sans-serif'] },
+                    colors: { bg: 'var(--bg)', fg: 'var(--fg)', muted: 'var(--muted)', accent: 'var(--accent)', card: 'var(--card)', border: 'var(--border)', surface: 'var(--surface)' }
                 }
             }
         }
     </script>
+
     <style>
-        :root { --bg: #0a0a0b; --fg: #fafafa; --muted: #71717a; --accent: #f59e0b; --card: #18181b; --border: #27272a; --surface: #0f0f10; }
-        [data-theme="light"] { --bg: #fafaf9; --fg: #0a0a0b; --muted: #71717a; --accent: #d97706; --card: #ffffff; --border: #e5e5e5; --surface: #f5f5f4; }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'DM Sans', sans-serif; background-color: var(--bg); color: var(--fg); transition: background-color 0.3s ease, color 0.3s ease; }
-        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        :root {
+            --bg: #080809; --fg: #f5f5f0; --muted: #6b6b72;
+            --accent: #f59e0b; --accent2: #fcd34d;
+            --card: #111113; --border: #1f1f22; --surface: #0d0d0f;
+            --green: #22c55e; --red: #ef4444;
+        }
+        [data-theme="light"] {
+            --bg: #f8f7f4; --fg: #0a0a0c; --muted: #7a7a82;
+            --accent: #d97706; --accent2: #f59e0b;
+            --card: #ffffff; --border: #e4e4e7; --surface: #f0efec;
+        }
 
-        .btn-primary { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #0a0a0b; font-weight: 600; padding: 12px 24px; border-radius: 8px; border: none; cursor: pointer; transition: all 0.3s; }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -10px rgba(245, 158, 11, 0.5); }
-        .btn-ghost { background: transparent; color: var(--fg); padding: 10px 20px; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; transition: all 0.2s; }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--fg); transition: background 0.3s, color 0.3s; overflow-x: hidden; }
+
+        /* ── Typography ── */
+        .font-display { font-family: 'Syne', sans-serif; }
+
+        /* ── Buttons ── */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.25s; border: none; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), #d97706); color: #0a0a0b; padding: 12px 22px; font-size: 14px; }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 24px -8px rgba(245,158,11,.45); }
+        .btn-ghost { background: transparent; color: var(--fg); border: 1px solid var(--border); padding: 11px 20px; font-size: 14px; }
         .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-        
-        .input-field { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; color: var(--fg); transition: all 0.2s; }
-        .input-field:focus { outline: none; border-color: var(--accent); }
+        .btn-sm { padding: 7px 14px; font-size: 12px; border-radius: 7px; }
+        .btn-danger { background: rgba(239,68,68,.15); color: var(--red); border: 1px solid rgba(239,68,68,.25); padding: 7px 14px; font-size: 12px; border-radius: 7px; }
+        .btn-danger:hover { background: rgba(239,68,68,.25); }
+        .btn-success { background: rgba(34,197,94,.15); color: var(--green); border: 1px solid rgba(34,197,94,.25); padding: 7px 14px; font-size: 12px; border-radius: 7px; }
+        .btn-success:hover { background: rgba(34,197,94,.25); }
 
-        /* Sidebar Logic */
-        .sidebar { 
-            width: 260px; 
-            height: 100vh; 
-            background: var(--card); 
-            border-right: 1px solid var(--border); 
-            position: fixed; left: 0; top: 0; padding: 24px; 
-            display: flex; flex-direction: column; z-index: 40; 
-            transition: transform 0.3s ease;
-        }
-        .main-dashboard { margin-left: 260px; min-height: 100vh; background: var(--bg); }
-        
-        /* Mobile Responsive Logic */
+        /* ── Inputs ── */
+        .inp { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 11px 14px; color: var(--fg); font-family: 'DM Sans', sans-serif; font-size: 14px; transition: border 0.2s, box-shadow 0.2s; }
+        .inp:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(245,158,11,0.1); }
+        .inp::placeholder { color: var(--muted); }
+        select.inp option { background: var(--card); }
+        textarea.inp { resize: vertical; min-height: 70px; }
+        label.lbl { display: block; font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 5px; }
+
+        /* ── Nav ── */
+        #top-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 60; background: rgba(8,8,9,0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); height: 64px; }
+        [data-theme="light"] #top-nav { background: rgba(248,247,244,0.88); }
+
+        /* ── Sidebar (admin) ── */
+        .sidebar { width: 240px; height: 100vh; background: var(--card); border-right: 1px solid var(--border); position: fixed; left: 0; top: 0; padding: 20px; display: flex; flex-direction: column; z-index: 40; transition: transform 0.3s; }
+        .admin-main { margin-left: 240px; min-height: 100vh; background: var(--bg); }
         @media (max-width: 768px) {
-            .sidebar { transform: translateX(-100%); z-index: 100; }
-            .sidebar.open { transform: translateX(0); box-shadow: 4px 0 15px rgba(0,0,0,0.3); }
-            .main-dashboard { margin-left: 0; }
-            .mobile-menu-btn { display: flex !important; }
-        }
-        @media (min-width: 769px) {
-            .mobile-menu-btn { display: none; }
+            .sidebar { transform: translateX(-100%); box-shadow: none; z-index: 100; }
+            .sidebar.open { transform: translateX(0); box-shadow: 4px 0 40px rgba(0,0,0,.6); }
+            .admin-main { margin-left: 0; }
         }
 
-        /* Floating WhatsApp */
-        .whatsapp-float {
-            position: fixed; bottom: 30px; right: 30px;
-            background-color: #25D366; color: white;
-            width: 60px; height: 60px; border-radius: 50px;
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 2px 2px 3px rgba(0,0,0,0.3); z-index: 100;
-            transition: transform 0.3s;
-        }
-        .whatsapp-float:hover { transform: scale(1.1); }
-        .whatsapp-tooltip {
-            position: absolute; right: 70px; background: var(--card);
-            border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px;
-            font-size: 14px; white-space: nowrap; opacity: 0; transition: opacity 0.3s; pointer-events: none;
-        }
-        .whatsapp-float:hover .whatsapp-tooltip { opacity: 1; }
+        /* ── Cards ── */
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; }
+        .car-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; transition: transform 0.3s, border-color 0.3s, box-shadow 0.3s; cursor: pointer; }
+        .car-card:hover { transform: translateY(-5px); border-color: var(--accent); box-shadow: 0 20px 40px -15px rgba(0,0,0,.6); }
 
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
-        
-        .toggle-switch { position: relative; width: 44px; height: 24px; background: var(--border); border-radius: 12px; cursor: pointer; transition: background 0.3s; }
-        .toggle-switch.active { background: var(--accent); }
-        .toggle-switch::after { content: ''; position: absolute; width: 18px; height: 18px; background: white; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.3s; }
-        .toggle-switch.active::after { transform: translateX(20px); }
+        /* ── Modals ── */
+        .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.75); backdrop-filter: blur(10px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 16px; opacity: 0; transition: opacity 0.2s; }
+        .modal-bg.show { opacity: 1; }
+        .modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 20px; width: 100%; max-height: 90vh; overflow-y: auto; transform: translateY(20px); transition: transform 0.3s; }
+        .modal-bg.show .modal-box { transform: translateY(0); }
+
+        /* ── Badges ── */
+        .badge { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; display: inline-block; }
+        .badge-pending { background: rgba(245,158,11,.15); color: var(--accent); }
+        .badge-approved { background: rgba(34,197,94,.15); color: var(--green); }
+        .badge-rejected { background: rgba(239,68,68,.15); color: var(--red); }
+        .badge-live { background: rgba(34,197,94,.15); color: var(--green); }
+        .badge-hidden { background: rgba(107,107,114,.15); color: var(--muted); }
+
+        /* ── Toggle ── */
+        .toggle { width: 42px; height: 23px; background: var(--border); border-radius: 12px; position: relative; cursor: pointer; transition: background 0.25s; flex-shrink: 0; }
+        .toggle.on { background: var(--green); }
+        .toggle::after { content: ''; position: absolute; width: 17px; height: 17px; background: #fff; border-radius: 50%; top: 3px; left: 3px; transition: transform 0.25s; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+        .toggle.on::after { transform: translateX(19px); }
+
+        /* ── Step indicator ── */
+        .step-dot { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; transition: all 0.3s; flex-shrink: 0; }
+        .step-dot.done { background: var(--green); color: #fff; }
+        .step-dot.active { background: var(--accent); color: #000; }
+        .step-dot.idle { background: var(--border); color: var(--muted); }
+        .step-line { flex: 1; height: 2px; background: var(--border); transition: background 0.3s; }
+        .step-line.done { background: var(--green); }
+
+        /* ── Price tag ── */
+        .price-box { background: linear-gradient(135deg, rgba(245,158,11,.08), rgba(245,158,11,.04)); border: 1px solid rgba(245,158,11,.2); border-radius: 12px; }
+
+        /* ── Filter chips ── */
+        .chip { padding: 7px 16px; border-radius: 50px; font-size: 13px; font-weight: 500; border: 1px solid var(--border); color: var(--muted); cursor: pointer; transition: all 0.2s; }
+        .chip.active { background: var(--accent); border-color: var(--accent); color: #0a0a0b; font-weight: 700; }
+        .chip:not(.active):hover { border-color: var(--accent); color: var(--accent); }
+
+        /* ── WA float ── */
+        .wa-btn { position: fixed; bottom: 26px; right: 26px; z-index: 90; width: 54px; height: 54px; background: #25D366; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(37,211,102,.45); transition: transform 0.3s, box-shadow 0.3s; text-decoration: none; }
+        .wa-btn:hover { transform: scale(1.12); box-shadow: 0 6px 28px rgba(37,211,102,.6); }
+
+        /* ── Flatpickr theme ── */
+        .flatpickr-calendar { background: var(--card) !important; border: 1px solid var(--border) !important; box-shadow: 0 20px 40px rgba(0,0,0,.4) !important; border-radius: 12px !important; }
+        .flatpickr-months, .flatpickr-weekdays { background: transparent !important; }
+        .flatpickr-month, .flatpickr-current-month, .flatpickr-monthDropdown-months { color: var(--fg) !important; fill: var(--fg) !important; }
+        .flatpickr-weekday { color: var(--muted) !important; }
+        .flatpickr-day { color: var(--fg) !important; border-radius: 8px !important; }
+        .flatpickr-day:hover, .flatpickr-day.prevMonthDay:hover, .flatpickr-day.nextMonthDay:hover { background: var(--surface) !important; border-color: var(--border) !important; }
+        .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange { background: var(--accent) !important; border-color: var(--accent) !important; color: #000 !important; }
+        .flatpickr-day.inRange { background: rgba(245,158,11,.12) !important; border-color: transparent !important; }
+        .flatpickr-day.flatpickr-disabled, .flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: var(--border) !important; }
+        .numInputWrapper span { border-color: var(--border) !important; }
+        .numInputWrapper input { color: var(--fg) !important; }
+        .flatpickr-prev-month svg, .flatpickr-next-month svg { fill: var(--fg) !important; }
+
+        /* ── Animations ── */
+        @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .fade-up { animation: fadeUp 0.5s ease-out forwards; }
+        .stagger-1 { animation-delay: 0.05s; opacity:0; }
+        .stagger-2 { animation-delay: 0.12s; opacity:0; }
+        .stagger-3 { animation-delay: 0.2s; opacity:0; }
+        .stagger-4 { animation-delay: 0.28s; opacity:0; }
+        .spinner { width: 22px; height: 22px; border: 2.5px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+
+        /* ── Tab nav (admin) ── */
+        .stab { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; transition: all 0.2s; background: none; border: none; width: 100%; text-align: left; border-left: 2px solid transparent; }
+        .stab.active { background: var(--surface); color: var(--fg); border-left-color: var(--accent); }
+        .stab:hover:not(.active) { color: var(--fg); background: var(--surface); }
+
+        /* ── Toast ── */
+        #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 500; z-index: 999; display: flex; align-items: center; gap: 10px; white-space: nowrap; box-shadow: 0 8px 32px rgba(0,0,0,.4); transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.3s; opacity: 0; }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        /* ── Misc ── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--surface); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        .divider { border: none; border-top: 1px solid var(--border); }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     </style>
 </head>
 <body>
 
-    <!-- Floating WhatsApp Button -->
-    <a href="https://wa.me/919605370108?text=Hi%20Cruzio%2C%20I%20am%20looking%20for%20the%20best%20offers" target="_blank" class="whatsapp-float">
-        <svg style="width: 32px; height: 32px; fill: white;" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        <span class="whatsapp-tooltip">Best Offers!</span>
-    </a>
+<!-- ══════════════════════════════════════════════ -->
+<!--  FLOATING WHATSAPP                             -->
+<!-- ══════════════════════════════════════════════ -->
+<a id="wa-float" href="https://wa.me/919605370108?text=Hi%20Cruzio%2C%20I%20need%20help" target="_blank" class="wa-btn" title="Chat on WhatsApp">
+    <svg width="28" height="28" fill="white" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+</a>
 
-    <div id="app-shell">
-        <!-- Top Navigation -->
-        <nav id="top-nav" class="fixed top-0 left-0 right-0 z-50 bg-bg/80 backdrop-blur-lg border-b border-border">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-                <a href="#" onclick="Router.navigate('home')" class="flex items-center gap-3">
-                    <!-- Updated: Local Logo -->
-                    <img src="./Cruzio logo.png" alt="Cruzio Logo" class="w-10 h-10 rounded-lg object-contain">
-                    <div class="flex flex-col leading-tight">
-                        <span class="font-display font-bold text-lg leading-none">Cruzio<span class="text-accent">.in</span></span>
-                        <span class="text-[10px] text-muted tracking-wider">SHINE VENTURES</span>
-                    </div>
-                </a>
-                
-                <div class="hidden md:flex items-center gap-6">
-                    <a href="#" onclick="Router.navigate('home')" class="text-sm text-muted hover:text-fg transition-colors">Home</a>
-                    <a href="#" onclick="Router.navigate('cars')" class="text-sm text-muted hover:text-fg transition-colors">Browse Cars</a>
-                    <a href="#" onclick="App.openListVehicle()" class="text-sm text-muted hover:text-fg transition-colors">List Your Vehicle</a>
-                </div>
+<!-- ══════════════════════════════════════════════ -->
+<!--  TOP NAV                                       -->
+<!-- ══════════════════════════════════════════════ -->
+<nav id="top-nav">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+        <a href="#" onclick="Router.go('home')" class="flex items-center gap-3" style="text-decoration:none">
+            <img src="./Cruzio logo.png" alt="Cruzio" class="w-9 h-9 rounded-xl object-contain">
+            <div>
+                <div class="font-display font-bold text-base leading-none">Cruzio<span style="color:var(--accent)">.in</span></div>
+                <div style="font-size:9px;color:var(--muted);letter-spacing:.12em">SHINE VENTURES</div>
+            </div>
+        </a>
 
-                <div class="flex items-center gap-3">
-                    <div id="auth-buttons">
-                        <button onclick="Router.navigate('login')" class="btn-ghost text-sm py-2">Login</button>
-                    </div>
-                    <div id="user-menu" class="hidden relative">
-                        <button onclick="App.toggleMenu()" class="flex items-center gap-2 bg-surface px-3 py-2 rounded-lg border border-border hover:border-accent transition-colors">
-                            <span class="w-8 h-8 rounded-full bg-accent/20 text-accent flex items-center justify-center font-bold text-sm" id="user-avatar">U</span>
-                            <span class="text-sm hidden sm:block" id="user-name">User</span>
-                        </button>
-                        <div id="dropdown" class="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-lg shadow-xl hidden">
-                            <div class="p-2 border-b border-border"><span class="text-xs text-muted px-2" id="user-role-label">Client</span></div>
-                            <a href="#" onclick="Router.navigate('dashboard')" class="block px-4 py-2 text-sm hover:bg-surface">Dashboard</a>
-                            <a href="#" onclick="Auth.logout()" class="block px-4 py-2 text-sm text-red-400 hover:bg-surface">Logout</a>
-                        </div>
-                    </div>
-                    <button onclick="App.toggleTheme()" class="p-2 rounded-lg hover:bg-surface ml-2" id="theme-toggle-btn"></button>
+        <div class="hidden md:flex items-center gap-8">
+            <a href="#" onclick="Router.go('home')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Home</a>
+            <a href="#" onclick="Router.go('cars')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Browse Cars</a>
+            <a href="#" onclick="Modals.open('partner-modal')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">List Your Vehicle</a>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <div id="nav-auth-area"></div>
+            <button onclick="Theme.toggle()" id="theme-btn" style="padding:8px;border-radius:9px;background:transparent;border:1px solid var(--border);cursor:pointer;color:var(--muted);display:flex;align-items:center"></button>
+            <button onclick="toggleMobileMenu()" class="md:hidden" style="padding:8px;border-radius:9px;background:transparent;border:1px solid var(--border);cursor:pointer;color:var(--fg);display:flex">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
+        </div>
+    </div>
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="hidden md:hidden border-t" style="border-color:var(--border);background:var(--card)">
+        <div class="px-4 py-3 space-y-1">
+            <a href="#" onclick="Router.go('home');closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Home</a>
+            <a href="#" onclick="Router.go('cars');closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Browse Cars</a>
+            <a href="#" onclick="Modals.open('partner-modal');closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">List Your Vehicle</a>
+        </div>
+    </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  MAIN VIEW                                     -->
+<!-- ══════════════════════════════════════════════ -->
+<main id="main"></main>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  MODAL: BOOKING                                -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="booking-modal" class="modal-bg" style="display:none">
+    <div class="modal-box" style="max-width:600px">
+        <!-- Header -->
+        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+            <div>
+                <h2 class="font-display text-xl font-bold">Book Your Car</h2>
+                <p id="bk-subtitle" class="text-sm" style="color:var(--muted)">Select dates &amp; submit your request</p>
+            </div>
+            <button onclick="Modals.close('booking-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+
+        <!-- Steps -->
+        <div class="flex items-center gap-2 px-5 py-4">
+            <div class="step-dot active" id="sd1">1</div>
+            <div class="step-line" id="sl1"></div>
+            <div class="step-dot idle" id="sd2">2</div>
+            <div class="step-line" id="sl2"></div>
+            <div class="step-dot idle" id="sd3">
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
+        </div>
+
+        <!-- ── Step 1: Dates ── -->
+        <div id="bk-s1" class="p-5 space-y-5">
+            <div class="flex gap-4 p-4 rounded-xl" style="background:var(--surface);border:1px solid var(--border)">
+                <img id="bk-img" src="" alt="" class="w-24 h-18 rounded-xl object-cover flex-shrink-0" style="height:72px">
+                <div>
+                    <div class="font-display font-bold text-base" id="bk-name">Car</div>
+                    <div class="text-sm mt-0.5" style="color:var(--muted)" id="bk-cat">-</div>
+                    <div class="font-display font-bold mt-1" style="color:var(--accent)" id="bk-ppd">₹0/day</div>
                 </div>
             </div>
-        </nav>
 
-        <main id="main-view" class="pt-16"></main>
-    </div>
-
-    <!-- Modals -->
-    
-    <!-- Signup Modal -->
-    <div id="signup-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-card border border-border rounded-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto relative">
-            <button onclick="App.closeModal('signup-modal')" class="absolute top-4 right-4 text-muted hover:text-fg text-2xl">&times;</button>
-            <div class="p-8">
-                <div class="mb-8">
-                    <h2 class="font-display text-2xl font-bold">Create Account</h2>
-                    <p class="text-muted text-sm mt-1">Join as <span id="signup-type-label" class="text-accent font-medium">Client</span></p>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="lbl">PICKUP DATE</label>
+                    <input type="text" id="fp-start" class="inp" placeholder="Choose date" readonly>
                 </div>
-                <div class="flex gap-2 mb-8">
-                    <div class="h-1 flex-1 rounded-full bg-accent" id="prog-1"></div>
-                    <div class="h-1 flex-1 rounded-full bg-border" id="prog-2"></div>
+                <div>
+                    <label class="lbl">RETURN DATE</label>
+                    <input type="text" id="fp-end" class="inp" placeholder="Choose date" readonly>
                 </div>
+            </div>
 
-                <form id="signup-form" onsubmit="Auth.handleSignup(event)">
-                    <div id="step-1" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="text-xs text-muted block mb-1">Full Name</label>
-                                <input type="text" id="s-name" class="input-field" placeholder="Legal Name" required>
-                            </div>
-                            <div>
-                                <label class="text-xs text-muted block mb-1">Phone</label>
-                                <input type="tel" id="s-phone" class="input-field" placeholder="+91 98765 43210" required>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">Email</label>
-                            <input type="email" id="s-email" class="input-field" placeholder="email@example.com" required>
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">Password</label>
-                            <input type="password" id="s-pass" class="input-field" placeholder="Min 6 characters" required>
-                        </div>
-                        <button type="button" onclick="App.step(2)" class="btn-primary w-full mt-4">Continue to KYC</button>
-                    </div>
+            <div id="bk-price-box" class="price-box p-4 rounded-xl hidden">
+                <div class="flex justify-between text-sm mb-2">
+                    <span style="color:var(--muted)">Duration</span>
+                    <span class="font-semibold" id="est-days">-</span>
+                </div>
+                <div class="flex justify-between text-sm mb-2">
+                    <span style="color:var(--muted)">Rate per day</span>
+                    <span class="font-semibold" id="est-rate">-</span>
+                </div>
+                <hr class="divider my-3">
+                <div class="flex justify-between items-center">
+                    <span class="font-bold">Estimated Total</span>
+                    <span class="font-display font-bold text-xl" style="color:var(--accent)" id="est-total">₹0</span>
+                </div>
+                <p class="text-xs mt-2" style="color:var(--muted)">*Final price confirmed upon booking approval</p>
+            </div>
 
-                    <div id="step-2" class="space-y-4 hidden">
-                        <div class="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 text-sm text-amber-200 mb-4">
-                            <strong>Secure Verification:</strong> Documents are encrypted.
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">Aadhaar Number</label>
-                            <input type="text" id="s-aadhaar" class="input-field" placeholder="12 digit number" required pattern="^[2-9]{1}[0-9]{3}[0-9]{4}[0-9]{4}$">
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">Aadhaar Card Scan</label>
-                            <input type="file" id="s-aadhaar-file" accept="image/*,.pdf" class="input-field text-sm" required>
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">PAN Number</label>
-                            <input type="text" id="s-pan" class="input-field" placeholder="ABCDE1234F" required pattern="^[A-Z]{5}[0-9]{4}[A-Z]{1}$">
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">PAN Card Scan</label>
-                            <input type="file" id="s-pan-file" accept="image/*,.pdf" class="input-field text-sm" required>
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">Driving License Number</label>
-                            <input type="text" id="s-dl" class="input-field" required>
-                        </div>
-                        <div>
-                            <label class="text-xs text-muted block mb-1">DL Scan</label>
-                            <input type="file" id="s-dl-file" accept="image/*,.pdf" class="input-field text-sm" required>
-                        </div>
-                        <div class="flex gap-4 mt-4">
-                            <button type="button" onclick="App.step(1)" class="btn-ghost flex-1">Back</button>
-                            <button type="submit" id="signup-btn" class="btn-primary flex-1">Create Account</button>
-                        </div>
-                    </div>
-                </form>
+            <button onclick="Booking.nextStep()" class="btn btn-primary" style="width:100%">Continue to Your Details →</button>
+        </div>
+
+        <!-- ── Step 2: Contact ── -->
+        <div id="bk-s2" class="p-5 space-y-4 hidden">
+            <p class="text-sm" style="color:var(--muted)">We'll call you within 30 minutes to confirm your booking.</p>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="lbl">FULL NAME *</label>
+                    <input type="text" id="bk-cname" class="inp" placeholder="Your full name">
+                </div>
+                <div>
+                    <label class="lbl">PHONE NUMBER *</label>
+                    <input type="tel" id="bk-cphone" class="inp" placeholder="+91 98765 43210">
+                </div>
+            </div>
+            <div>
+                <label class="lbl">EMAIL ADDRESS *</label>
+                <input type="email" id="bk-cemail" class="inp" placeholder="you@example.com">
+            </div>
+            <div>
+                <label class="lbl">MESSAGE (OPTIONAL)</label>
+                <textarea id="bk-cmsg" class="inp" placeholder="Pickup location, special requests..."></textarea>
+            </div>
+
+            <!-- Summary -->
+            <div class="p-4 rounded-xl text-sm space-y-2.5" style="background:var(--surface);border:1px solid var(--border)">
+                <div class="font-semibold mb-1">Booking Summary</div>
+                <div class="flex justify-between"><span style="color:var(--muted)">Car</span><span class="font-medium" id="sum-car">-</span></div>
+                <div class="flex justify-between"><span style="color:var(--muted)">Dates</span><span class="font-medium" id="sum-dates">-</span></div>
+                <div class="flex justify-between"><span style="color:var(--muted)">Duration</span><span class="font-medium" id="sum-dur">-</span></div>
+                <hr class="divider">
+                <div class="flex justify-between"><span class="font-bold">Est. Total</span><span class="font-display font-bold" style="color:var(--accent)" id="sum-total">-</span></div>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="Booking.prevStep()" class="btn btn-ghost" style="flex:1">← Back</button>
+                <button onclick="Booking.submit()" id="bk-submit-btn" class="btn btn-primary" style="flex:1">Confirm Request</button>
+            </div>
+        </div>
+
+        <!-- ── Step 3: Success ── -->
+        <div id="bk-s3" class="p-8 text-center hidden">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style="background:rgba(34,197,94,.15)">
+                <svg class="w-8 h-8" style="color:var(--green)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h3 class="font-display text-2xl font-bold mb-2">Request Submitted!</h3>
+            <p class="text-sm mb-6" style="color:var(--muted);max-width:340px;margin:0 auto 24px">Our team will call you within 30 minutes to confirm your booking details.</p>
+            <div id="bk-success-summary" class="p-4 rounded-xl text-sm text-left mb-6 space-y-2.5" style="background:var(--surface);border:1px solid var(--border)"></div>
+            <div class="flex gap-3 justify-center">
+                <button onclick="Modals.close('booking-modal')" class="btn btn-ghost">Close</button>
+                <a id="bk-wa-link" href="#" target="_blank" class="btn btn-primary">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    Chat on WhatsApp
+                </a>
             </div>
         </div>
     </div>
+</div>
 
-    <div id="toast" class="fixed bottom-6 right-6 bg-card border border-border rounded-lg px-5 py-3 shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 z-[200]">
-        <span id="toast-msg">Message</span>
+<!-- ══════════════════════════════════════════════ -->
+<!--  MODAL: LOGIN                                  -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="login-modal" class="modal-bg" style="display:none">
+    <div class="modal-box" style="max-width:400px">
+        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+            <h2 class="font-display text-xl font-bold">Staff Login</h2>
+            <button onclick="Modals.close('login-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+        <form onsubmit="Auth.login(event)" class="p-5 space-y-4">
+            <div>
+                <label class="lbl">EMAIL</label>
+                <input type="email" id="l-email" class="inp" placeholder="admin@cruzio.in" required>
+            </div>
+            <div>
+                <label class="lbl">PASSWORD</label>
+                <input type="password" id="l-pass" class="inp" placeholder="••••••••" required>
+            </div>
+            <button type="submit" id="login-btn" class="btn btn-primary" style="width:100%">Login</button>
+            <p class="text-xs text-center" style="color:var(--muted)">Cruzio admin &amp; partner portal only.</p>
+        </form>
     </div>
+</div>
 
-    <script>
-        // ================= CONFIGURATION =================
-        const CONFIG = {
-            SUPABASE_URL: 'https://flxjlkxfydsrruszrldy.supabase.co',
-            SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
-            ACTIVE_CITY: 'Chennai',
-            PHONE: '+91 96053 70108',
-            WHATSAPP: 'https://wa.me/919605370108?text=Hi%20Cruzio'
-        };
-
-        const sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
-
-        // ================= APP STATE =================
-        const App = {
-            user: null,
-            profile: null,
-            
-            init: async () => {
-                await Auth.checkSession();
-                Router.init();
-                App.loadTheme(); 
-            },
-
-            toggleMenu: () => document.getElementById('dropdown').classList.toggle('hidden'),
-            openModal: (id) => document.getElementById(id).classList.remove('hidden'),
-            closeModal: (id) => document.getElementById(id).classList.add('hidden'),
-            
-            toast: (msg, type = 'success') => {
-                const t = document.getElementById('toast');
-                const m = document.getElementById('toast-msg');
-                m.textContent = msg;
-                t.style.borderColor = type === 'error' ? '#ef4444' : 'var(--accent)';
-                t.classList.remove('translate-y-20', 'opacity-0');
-                setTimeout(() => t.classList.add('translate-y-20', 'opacity-0'), 3000);
-            },
-
-            loadTheme: () => {
-                const savedTheme = localStorage.getItem('theme');
-                const btn = document.getElementById('theme-toggle-btn');
-                if (savedTheme === 'light') {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    btn.innerHTML = `<svg class="w-5 h-5 text-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`;
-                } else {
-                    btn.innerHTML = `<svg class="w-5 h-5 text-fg" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>`;
-                }
-            },
-
-            toggleTheme: () => {
-                const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-                if (isLight) {
-                    document.documentElement.removeAttribute('data-theme');
-                    localStorage.setItem('theme', 'dark');
-                } else {
-                    document.documentElement.setAttribute('data-theme', 'light');
-                    localStorage.setItem('theme', 'light');
-                }
-                App.loadTheme();
-            },
-
-            step: (n) => {
-                document.getElementById('step-1').classList.toggle('hidden', n !== 1);
-                document.getElementById('step-2').classList.toggle('hidden', n !== 2);
-                document.getElementById('prog-1').style.background = n >= 1 ? 'var(--accent)' : 'var(--border)';
-                document.getElementById('prog-2').style.background = n >= 2 ? 'var(--accent)' : 'var(--border)';
-            },
-
-            setRole: (role) => {
-                document.getElementById('signup-type-label').innerText = role.charAt(0).toUpperCase() + role.slice(1);
-            },
-
-            openListVehicle: () => {
-                if(!App.user) {
-                    App.openModal('signup-modal');
-                    App.setRole('partner');
-                } else if (App.profile.role === 'client') {
-                    App.toast("Sign up as Partner to list vehicles.", "error");
-                } else {
-                    Router.navigate('partner_dashboard');
-                }
-            },
-
-            updateUI: () => {
-                const authBtns = document.getElementById('auth-buttons');
-                const userMenu = document.getElementById('user-menu');
-                if(App.user) {
-                    authBtns.classList.add('hidden');
-                    userMenu.classList.remove('hidden');
-                    document.getElementById('user-name').textContent = App.profile?.full_name || 'User';
-                    document.getElementById('user-avatar').textContent = App.profile?.full_name?.charAt(0) || 'U';
-                    document.getElementById('user-role-label').textContent = App.profile?.role || 'Client';
-                } else {
-                    authBtns.classList.remove('hidden');
-                    userMenu.classList.add('hidden');
-                }
-            }
-        };
-
-        // ================= AUTH =================
-        const Auth = {
-            checkSession: async () => {
-                const { data: { session } } = await sb.auth.getSession();
-                if (session) {
-                    App.user = session.user;
-                    await Auth.fetchProfile();
-                }
-                App.updateUI();
-            },
-
-            fetchProfile: async () => {
-                const { data } = await sb.from('profiles').select('*').eq('id', App.user.id).single();
-                App.profile = data;
-            },
-
-            mapError: (msg) => {
-                if(msg.includes("User already registered")) return "An account with this email already exists.";
-                if(msg.includes("Invalid login credentials")) return "Incorrect email or password.";
-                if(msg.includes("Email not confirmed")) return "Please verify your email first.";
-                return msg;
-            },
-
-            handleLogin: async (e) => {
-                e.preventDefault();
-                const email = document.getElementById('login-email').value;
-                const pass = document.getElementById('login-pass').value;
-                const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-                if (error) return App.toast(Auth.mapError(error.message), 'error');
-                App.user = data.user;
-                await Auth.fetchProfile();
-                App.updateUI();
-                if (App.profile.role === 'admin') Router.navigate('admin_dashboard');
-                else if (App.profile.role === 'partner') Router.navigate('partner_dashboard');
-                else Router.navigate('dashboard');
-                App.toast('Welcome back!');
-            },
-
-            handleSignup: async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('signup-btn');
-                btn.innerHTML = "<span class='animate-pulse'>Creating...</span>";
-                btn.disabled = true;
-                const role = document.getElementById('signup-type-label').innerText.toLowerCase();
-                const email = document.getElementById('s-email').value;
-                const pass = document.getElementById('s-pass').value;
-                const name = document.getElementById('s-name').value;
-                const phone = document.getElementById('s-phone').value;
-                const aadhaar = document.getElementById('s-aadhaar').value;
-                const pan = document.getElementById('s-pan').value;
-                const dl = document.getElementById('s-dl').value;
-
-                try {
-                    const { data, error } = await sb.auth.signUp({
-                        email, password: pass,
-                        options: { data: { full_name: name, phone, role } }
-                    });
-                    if (error) throw error;
-                    
-                    // If email confirmation is ON (Brevo)
-                    if (data.user && !data.session) {
-                        App.closeModal('signup-modal');
-                        App.toast('Verification email sent! Please check your inbox.', 'success');
-                        Router.navigate('login');
-                        return;
-                    }
-
-                    // Upload Docs
-                    const userId = data.user.id;
-                    const uploadFile = async (inputId, folder) => {
-                        const file = document.getElementById(inputId).files[0];
-                        if(!file) return null;
-                        const path = `${userId}/${folder}_${Date.now()}`;
-                        await sb.storage.from('kyc_documents').upload(path, file);
-                        return sb.storage.from('kyc_documents').getPublicUrl(path).data.publicUrl;
-                    };
-                    const [aadhaarUrl, panUrl, dlUrl] = await Promise.all([
-                        uploadFile('s-aadhaar-file', 'aadhaar'), uploadFile('s-pan-file', 'pan'), uploadFile('s-dl-file', 'dl')
-                    ]);
-                    await sb.from('profiles').update({
-                        aadhaar_number: aadhaar, pan_number: pan, dl_number: dl,
-                        aadhaar_url: aadhaarUrl, pan_url: panUrl, dl_url: dlUrl, kyc_status: 'submitted'
-                    }).eq('id', userId);
-
-                    await Auth.fetchProfile();
-                    App.closeModal('signup-modal');
-                    App.updateUI();
-                    Router.navigate('dashboard');
-                    App.toast('Account created! KYC under review.');
-                } catch (err) {
-                    App.toast(Auth.mapError(err.message), 'error');
-                    btn.innerHTML = "Create Account";
-                    btn.disabled = false;
-                }
-            },
-
-            logout: async () => {
-                await sb.auth.signOut();
-                App.user = null; App.profile = null;
-                App.updateUI();
-                Router.navigate('home');
-                App.toast('Logged out');
-            }
-        };
-
-        // ================= ROUTER =================
-        const Router = {
-            init: () => {
-                window.onhashchange = () => Router.loadRoute();
-                Router.loadRoute();
-            },
-            navigate: (view) => { window.location.hash = view; },
-            loadRoute: async () => {
-                const view = window.location.hash.slice(1) || 'home';
-                const main = document.getElementById('main-view');
-                const topNav = document.getElementById('top-nav');
-                
-                const protectedRoutes = ['dashboard', 'partner_dashboard', 'admin_dashboard'];
-                if (protectedRoutes.includes(view) && !App.user) return Router.navigate('login');
-
-                if (view === 'admin_dashboard' && App.profile?.role !== 'admin') return Router.navigate('home');
-                if (view === 'partner_dashboard' && !['partner', 'admin'].includes(App.profile?.role)) return Router.navigate('home');
-
-                topNav.classList.toggle('hidden', (view.includes('dashboard')));
-                
-                switch(view) {
-                    case 'login': main.innerHTML = Views.login(); break;
-                    case 'dashboard': main.innerHTML = Views.clientDashboard(); break;
-                    case 'partner_dashboard': main.innerHTML = Views.partnerDashboard(); PartnerCtrl.init(); break;
-                    case 'admin_dashboard': main.innerHTML = Views.adminDashboard(); AdminCtrl.init(); break;
-                    case 'cars': main.innerHTML = Views.carsList(); CarCtrl.loadCars(); break;
-                    default: main.innerHTML = Views.home();
-                }
-            }
-        };
-
-        // ================= VIEWS =================
-        const Views = {
-            home: () => `
-                <div class="min-h-screen relative overflow-hidden">
-                    <div class="absolute inset-0 pointer-events-none">
-                        <div class="absolute top-[-20%] right-[-10%] w-[800px] h-[800px] bg-amber-500/20 rounded-full blur-[120px]"></div>
-                    </div>
-                    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 pt-20 flex flex-col lg:flex-row items-center gap-12">
-                        <div class="flex-1 text-center lg:text-left">
-                            <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-border mb-6 fade-in">
-                                <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                <span class="text-sm text-muted">Currently serving Chennai</span>
-                            </div>
-                            <h1 class="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6 fade-in">
-                                Premium Rentals <br><span class="text-accent">At Your Fingertips</span>
-                            </h1>
-                            <p class="text-lg text-muted mb-8 max-w-lg mx-auto lg:mx-0 fade-in">
-                                Premium car rentals for every occasion. Verified vehicles by Shine Ventures.
-                            </p>
-                            <div class="flex gap-4 justify-center lg:justify-start fade-in flex-wrap">
-                                <button onclick="Router.navigate('cars')" class="btn-primary">View Cars</button>
-                                <a href="${CONFIG.WHATSAPP}" target="_blank" class="btn-ghost">Best Offers</a>
-                            </div>
-                        </div>
-                        <div class="flex-1 relative fade-in hidden lg:block">
-                            <img src="https://images.unsplash.com/photo-1617531653332-bd46c24f2068?auto=format&fit=crop&w=800&q=80" class="rounded-3xl shadow-2xl border border-border w-full h-auto" alt="Premium Car">
-                        </div>
-                    </div>
-                    <footer class="absolute bottom-0 left-0 right-0 py-6 border-t border-border bg-bg/50 backdrop-blur-sm mt-20">
-                        <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div>
-                                <p class="text-sm text-muted">© 2024 Cruzio.in. A product of <strong class="text-fg">Shine Ventures</strong>.</p>
-                                <div class="text-sm text-accent font-medium mt-1">Bookings: ${CONFIG.PHONE}</div>
-                            </div>
-                            <div class="flex gap-6 text-sm text-muted">
-                                <a href="#" class="hover:text-accent">Terms</a>
-                                <a href="#" class="hover:text-accent">Privacy</a>
-                            </div>
-                        </div>
-                    </footer>
+<!-- ══════════════════════════════════════════════ -->
+<!--  MODAL: ADD / EDIT CAR                         -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="car-modal" class="modal-bg" style="display:none">
+    <div class="modal-box" style="max-width:520px">
+        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+            <h2 class="font-display text-xl font-bold" id="car-modal-title">Add Car</h2>
+            <button onclick="Modals.close('car-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+        <form onsubmit="AdminCtrl.saveCar(event)" class="p-5 space-y-4">
+            <input type="hidden" id="c-id">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="lbl">CAR NAME *</label>
+                    <input type="text" id="c-name" class="inp" placeholder="Toyota Innova Crysta" required>
                 </div>
-            `,
+                <div>
+                    <label class="lbl">CATEGORY *</label>
+                    <select id="c-cat" class="inp" required>
+                        <option value="">Select...</option>
+                        <option>Sedan</option><option>SUV</option><option>Luxury</option>
+                        <option>Van/MUV</option><option>Hatchback</option><option>Sports</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="lbl">PRICE / DAY (₹) *</label>
+                    <input type="number" id="c-price" class="inp" placeholder="2500" min="1" required>
+                </div>
+                <div>
+                    <label class="lbl">SEATS</label>
+                    <input type="number" id="c-seats" class="inp" placeholder="5" min="2" max="20">
+                </div>
+            </div>
+            <div>
+                <label class="lbl">IMAGE URL</label>
+                <input type="url" id="c-img" class="inp" placeholder="https://...">
+            </div>
+            <div>
+                <label class="lbl">DESCRIPTION</label>
+                <textarea id="c-desc" class="inp" placeholder="Comfortable, spacious vehicle with premium interiors..."></textarea>
+            </div>
+            <div>
+                <label class="lbl">FEATURES (comma separated)</label>
+                <input type="text" id="c-feats" class="inp" placeholder="AC, GPS, Bluetooth, Rear Camera, Sunroof">
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="toggle" id="c-live-toggle" onclick="toggleCarLive()"></div>
+                <input type="checkbox" id="c-live" class="hidden">
+                <label class="text-sm font-medium" onclick="toggleCarLive()" style="cursor:pointer">Mark as Available on Site</label>
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="button" onclick="Modals.close('car-modal')" class="btn btn-ghost" style="flex:1">Cancel</button>
+                <button type="submit" id="save-car-btn" class="btn btn-primary" style="flex:1">Save Car</button>
+            </div>
+        </form>
+    </div>
+</div>
 
-            login: () => `
-                <div class="min-h-screen flex items-center justify-center p-4">
-                    <div class="w-full max-w-md bg-card border border-border rounded-2xl p-8">
-                        <h2 class="font-display text-2xl font-bold mb-6">Login</h2>
-                        <form onsubmit="Auth.handleLogin(event)" class="space-y-4">
-                            <div>
-                                <label class="text-xs text-muted block mb-1">Email</label>
-                                <input type="email" id="login-email" class="input-field" placeholder="email@example.com" required>
-                            </div>
-                            <div>
-                                <label class="text-xs text-muted block mb-1">Password</label>
-                                <input type="password" id="login-pass" class="input-field" placeholder="Enter password" required>
-                            </div>
-                            <button type="submit" class="btn-primary w-full">Login</button>
-                        </form>
-                        <p class="mt-4 text-center text-sm text-muted">
-                            Don't have an account? <a href="#" onclick="App.openModal('signup-modal'); App.setRole('client')" class="text-accent hover:underline">Sign Up</a>
+<!-- ══════════════════════════════════════════════ -->
+<!--  MODAL: PARTNER INQUIRY                        -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="partner-modal" class="modal-bg" style="display:none">
+    <div class="modal-box" style="max-width:440px">
+        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+            <div>
+                <h2 class="font-display text-xl font-bold">List Your Vehicle</h2>
+                <p class="text-sm mt-0.5" style="color:var(--muted)">Earn by renting your car with Cruzio</p>
+            </div>
+            <button onclick="Modals.close('partner-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+        <form onsubmit="submitPartnerInquiry(event)" class="p-5 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="lbl">YOUR NAME *</label>
+                    <input type="text" id="p-name" class="inp" placeholder="Full name" required>
+                </div>
+                <div>
+                    <label class="lbl">PHONE *</label>
+                    <input type="tel" id="p-phone" class="inp" placeholder="+91 98765 43210" required>
+                </div>
+            </div>
+            <div>
+                <label class="lbl">EMAIL</label>
+                <input type="email" id="p-email" class="inp" placeholder="you@example.com">
+            </div>
+            <div>
+                <label class="lbl">VEHICLE DETAILS</label>
+                <textarea id="p-vehicle" class="inp" placeholder="Make, model, year, condition..."></textarea>
+            </div>
+            <button type="submit" id="partner-submit-btn" class="btn btn-primary" style="width:100%">Submit Inquiry</button>
+        </form>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast">
+    <span id="toast-icon">✓</span>
+    <span id="toast-msg">Message</span>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  JAVASCRIPT                                    -->
+<!-- ══════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ────────────────────────────────────────────────
+//  CONFIG  ← update these
+// ────────────────────────────────────────────────
+const CFG = {
+    SB_URL:  'https://flxjlkxfydsrruszrldy.supabase.co',
+    SB_KEY:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
+    FORMSPREE: 'xvzbylez', // ← replace with your ID
+    PHONE:    '+91 96053 70108',
+    WA:       'https://wa.me/919605370108?text=',
+};
+
+const sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_KEY);
+
+// ────────────────────────────────────────────────
+//  STATE
+// ────────────────────────────────────────────────
+const S = {
+    user: null,
+    profile: null,
+    car: null,           // selected car for booking
+    dates: { s: null, e: null },
+    allCars: [],
+};
+
+// ────────────────────────────────────────────────
+//  UTILS
+// ────────────────────────────────────────────────
+function esc(v) {
+    if (v == null) return '';
+    return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtDate(d) {
+    if (!d) return '-';
+    return new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+}
+
+function fmtCur(n) { return '₹' + Number(n).toLocaleString('en-IN'); }
+
+function days(s, e) {
+    if (!s || !e) return 0;
+    return Math.max(1, Math.round((new Date(e) - new Date(s)) / 86400000));
+}
+
+function toast(msg, type = 'success') {
+    const el = document.getElementById('toast');
+    document.getElementById('toast-icon').textContent = type === 'error' ? '✕' : type === 'info' ? 'ℹ' : '✓';
+    document.getElementById('toast-msg').textContent = msg;
+    el.style.borderColor = type === 'error' ? 'var(--red)' : type === 'info' ? '#3b82f6' : 'var(--accent)';
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+function setBtn(id, html, disabled = false) {
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.innerHTML = html;
+    b.disabled = disabled;
+}
+
+function loading(txt = 'Loading...') {
+    return `<div class="flex items-center justify-center py-20" style="color:var(--muted)">
+        <div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-right:12px"></div>
+        ${txt}
+    </div>`;
+}
+
+// ────────────────────────────────────────────────
+//  THEME
+// ────────────────────────────────────────────────
+const Theme = {
+    apply(t) {
+        document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : '');
+        localStorage.setItem('theme', t);
+        const btn = document.getElementById('theme-btn');
+        btn.innerHTML = t === 'light'
+            ? `<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`
+            : `<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>`;
+    },
+    toggle() {
+        const cur = localStorage.getItem('theme') || 'dark';
+        Theme.apply(cur === 'light' ? 'dark' : 'light');
+    }
+};
+
+// ────────────────────────────────────────────────
+//  MODALS
+// ────────────────────────────────────────────────
+const Modals = {
+    open(id) {
+        const m = document.getElementById(id);
+        m.style.display = 'flex';
+        requestAnimationFrame(() => m.classList.add('show'));
+    },
+    close(id) {
+        const m = document.getElementById(id);
+        m.classList.remove('show');
+        setTimeout(() => m.style.display = 'none', 200);
+    }
+};
+
+// Close modal on background click
+document.addEventListener('click', e => {
+    document.querySelectorAll('.modal-bg.show').forEach(m => {
+        if (e.target === m) Modals.close(m.id);
+    });
+});
+
+// ────────────────────────────────────────────────
+//  MOBILE NAV
+// ────────────────────────────────────────────────
+function toggleMobileMenu() { document.getElementById('mobile-menu').classList.toggle('hidden'); }
+function closeMobileMenu() { document.getElementById('mobile-menu').classList.add('hidden'); }
+
+// ────────────────────────────────────────────────
+//  AUTH
+// ────────────────────────────────────────────────
+const Auth = {
+    async init() {
+        const { data: { session } } = await sb.auth.getSession();
+        if (session) {
+            S.user = session.user;
+            const { data } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
+            S.profile = data;
+        }
+        Auth.renderNav();
+    },
+
+    renderNav() {
+        const el = document.getElementById('nav-auth-area');
+        if (S.user) {
+            const name = S.profile?.full_name || S.user.email || 'Admin';
+            const init = name.charAt(0).toUpperCase();
+            el.innerHTML = `
+                <div style="position:relative" id="user-wrap">
+                    <button onclick="document.getElementById('user-dd').classList.toggle('hidden')"
+                        style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);padding:6px 12px 6px 6px;border-radius:10px;cursor:pointer;transition:border-color .2s"
+                        onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                        <span style="width:28px;height:28px;border-radius:50%;background:rgba(245,158,11,.2);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${esc(init)}</span>
+                        <span class="hidden sm:block text-sm font-medium">${esc(name.split(' ')[0])}</span>
+                    </button>
+                    <div id="user-dd" class="hidden" style="position:absolute;right:0;top:calc(100% + 8px);width:180px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.4);z-index:100;overflow:hidden">
+                        <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
+                            <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${esc(S.profile?.role || 'user')}</div>
+                        </div>
+                        ${S.profile?.role === 'admin' ? `<a href="#" onclick="Router.go('admin')" style="display:block;padding:10px 14px;font-size:13px;text-decoration:none;color:var(--fg);transition:background .15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">Admin Dashboard</a>` : ''}
+                        <button onclick="Auth.logout()" style="width:100%;text-align:left;padding:10px 14px;font-size:13px;color:var(--red);background:none;border:none;cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(239,68,68,.08)'" onmouseout="this.style.background=''">Logout</button>
+                    </div>
+                </div>`;
+        } else {
+            el.innerHTML = `<button onclick="Modals.open('login-modal')" class="btn btn-ghost btn-sm">Staff Login</button>`;
+        }
+    },
+
+    async login(e) {
+        e.preventDefault();
+        setBtn('login-btn', `<span class="spinner"></span> Logging in...`, true);
+        const { data, error } = await sb.auth.signInWithPassword({
+            email: document.getElementById('l-email').value,
+            password: document.getElementById('l-pass').value,
+        });
+        if (error) {
+            setBtn('login-btn', 'Login', false);
+            return toast(error.message.includes('Invalid') ? 'Incorrect email or password.' : error.message, 'error');
+        }
+        S.user = data.user;
+        const { data: prof } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
+        S.profile = prof;
+        Auth.renderNav();
+        Modals.close('login-modal');
+        toast('Welcome back!');
+        if (S.profile?.role === 'admin') Router.go('admin');
+    },
+
+    async logout() {
+        await sb.auth.signOut();
+        S.user = null; S.profile = null;
+        Auth.renderNav();
+        Router.go('home');
+        toast('Logged out');
+    }
+};
+
+// Close user dropdown on outside click
+document.addEventListener('click', e => {
+    const wrap = document.getElementById('user-wrap');
+    const dd = document.getElementById('user-dd');
+    if (dd && wrap && !wrap.contains(e.target)) dd.classList.add('hidden');
+});
+
+// ────────────────────────────────────────────────
+//  ROUTER
+// ────────────────────────────────────────────────
+const Router = {
+    go(view) { window.location.hash = view; },
+    init() {
+        window.onhashchange = Router.load;
+        Router.load();
+    },
+    load() {
+        const view = window.location.hash.slice(1) || 'home';
+        const nav = document.getElementById('top-nav');
+        const wa = document.getElementById('wa-float');
+
+        if (view === 'admin') {
+            if (!S.user || S.profile?.role !== 'admin') {
+                Modals.open('login-modal');
+                return Router.go('home');
+            }
+            nav.style.display = 'none';
+            wa.style.display = 'none';
+            document.getElementById('main').className = 'min-h-screen';
+            document.getElementById('main').innerHTML = Views.admin();
+            AdminCtrl.init();
+            return;
+        }
+
+        nav.style.display = '';
+        wa.style.display = '';
+        document.getElementById('main').className = 'pt-16 min-h-screen';
+
+        switch (view) {
+            case 'cars': document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); break;
+            default:     document.getElementById('main').innerHTML = Views.home(); break;
+        }
+    }
+};
+
+// ────────────────────────────────────────────────
+//  VIEWS
+// ────────────────────────────────────────────────
+const Views = {
+
+    home: () => `
+        <!-- HERO -->
+        <section style="position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:center">
+            <div style="position:absolute;inset:0;pointer-events:none">
+                <div style="position:absolute;top:-25%;right:-10%;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.18) 0%,transparent 70%)"></div>
+                <div style="position:absolute;bottom:-30%;left:-15%;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.09) 0%,transparent 70%)"></div>
+                <!-- Grain overlay -->
+                <svg style="position:absolute;inset:0;width:100%;height:100%;opacity:.03" xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>
+            </div>
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 w-full py-16">
+                <div class="grid lg:grid-cols-2 gap-14 items-center">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 fade-up stagger-1" style="background:var(--surface);border:1px solid var(--border);font-size:13px">
+                            <span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:spin 2s linear infinite;box-shadow:0 0 6px var(--green)"></span>
+                            <span style="color:var(--muted)">Now serving Chennai</span>
+                        </div>
+                        <h1 class="font-display fade-up stagger-2" style="font-size:clamp(2.8rem,7vw,5rem);font-weight:800;line-height:1.08;margin-bottom:24px">
+                            Drive<br>Premium.<br><span style="color:var(--accent)">Pay Less.</span>
+                        </h1>
+                        <p class="fade-up stagger-3" style="font-size:17px;color:var(--muted);max-width:420px;line-height:1.7;margin-bottom:36px">
+                            Handpicked, verified cars for every occasion. Select, choose your dates, get an instant estimate — we confirm within 30 minutes.
                         </p>
+                        <div class="flex flex-wrap gap-3 fade-up stagger-4">
+                            <button onclick="Router.go('cars')" class="btn btn-primary" style="font-size:15px;padding:14px 28px">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                                Browse Cars
+                            </button>
+                            <a href="${CFG.WA}Hi%20Cruzio%2C%20I%20need%20help" target="_blank" class="btn btn-ghost" style="font-size:15px;padding:14px 28px;text-decoration:none">
+                                <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                WhatsApp Us
+                            </a>
+                        </div>
+                    </div>
+                    <div class="hidden lg:block fade-up stagger-3" style="position:relative">
+                        <img src="https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&w=800&q=80"
+                             style="width:100%;border-radius:24px;border:1px solid var(--border);box-shadow:0 40px 80px -20px rgba(0,0,0,.7)"
+                             alt="Premium Car">
+                        <div style="position:absolute;bottom:-16px;left:-16px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;box-shadow:0 20px 40px rgba(0,0,0,.4)">
+                            <div class="font-display font-bold text-2xl" style="color:var(--accent)">₹0</div>
+                            <div class="text-sm" style="color:var(--muted)">Hidden Charges</div>
+                        </div>
+                        <div style="position:absolute;top:-16px;right:-16px;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 20px;box-shadow:0 20px 40px rgba(0,0,0,.4)">
+                            <div class="font-display font-bold text-2xl" style="color:var(--green)">30 min</div>
+                            <div class="text-sm" style="color:var(--muted)">Confirmation</div>
+                        </div>
                     </div>
                 </div>
-            `,
+            </div>
+        </section>
 
-            clientDashboard: () => `
-                <div class="flex bg-surface min-h-screen">
-                    ${Views.sidebar('client')}
-                    <div class="main-dashboard p-4 md:p-8 w-full">
-                        <h1 class="font-display text-2xl font-bold mb-6">My Dashboard</h1>
-                        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                            <div class="bg-card border border-border rounded-xl p-5">
-                                <div class="text-xs text-muted mb-1">KYC Status</div>
-                                <div class="text-lg font-bold capitalize ${App.profile?.kyc_status === 'approved' ? 'text-green-500' : 'text-amber-500'}">${App.profile?.kyc_status}</div>
-                            </div>
-                        </div>
-                         <div class="bg-card border border-border rounded-xl p-6">
-                            <h3 class="font-bold mb-4">Need Help?</h3>
-                            <a href="${CONFIG.WHATSAPP}" target="_blank" class="btn-primary text-sm py-2 inline-block">Contact Support</a>
-                        </div>
+        <!-- STATS BAR -->
+        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+                ${[['50+','Premium Cars'],['500+','Happy Clients'],['24/7','Support Available'],['₹0','Hidden Fees']].map(([n,l]) => `
+                    <div>
+                        <div class="font-display font-extrabold text-3xl" style="color:var(--accent)">${n}</div>
+                        <div class="text-sm mt-1" style="color:var(--muted)">${l}</div>
                     </div>
-                </div>
-            `,
+                `).join('')}
+            </div>
+        </section>
 
-            partnerDashboard: () => `
-                <div class="flex bg-surface min-h-screen">
-                    ${Views.sidebar('partner')}
-                    <div class="main-dashboard p-4 md:p-8 w-full">
-                        <div class="flex justify-between items-center mb-8">
-                            <h1 class="font-display text-2xl font-bold">Partner Portal</h1>
-                            <button onclick="PartnerCtrl.addCar()" class="btn-primary text-sm py-2">+ Add Car</button>
-                        </div>
-                        <div class="bg-card border border-border rounded-xl overflow-x-auto">
-                            <table class="w-full min-w-[400px]">
-                                <thead class="border-b border-border">
-                                    <tr><th class="text-left p-4 text-xs text-muted font-medium">CAR NAME</th><th class="text-left p-4 text-xs text-muted font-medium">STATUS</th><th class="text-left p-4 text-xs text-muted font-medium">PRICE</th></tr>
-                                </thead>
-                                <tbody id="partner-cars-tbody"><tr><td colspan="3" class="p-8 text-center text-muted">Loading...</td></tr></tbody>
-                            </table>
-                        </div>
+        <!-- HOW IT WORKS -->
+        <section class="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+            <div class="text-center mb-14">
+                <h2 class="font-display text-3xl font-extrabold mb-3">Book in 3 Steps</h2>
+                <p style="color:var(--muted)">No signup required. Just pick, calculate &amp; confirm.</p>
+            </div>
+            <div class="grid md:grid-cols-3 gap-8">
+                ${[
+                    ['01','Browse & Pick','Browse our verified fleet and choose the car that suits your trip.','🚗'],
+                    ['02','Select Dates','Pick your pickup and return dates — see your total price instantly.','📅'],
+                    ['03','We Confirm','Submit your request. We call you within 30 minutes to confirm.','✅'],
+                ].map(([n,t,d,ic]) => `
+                    <div class="card p-6 hover:border-[var(--accent)] transition-colors">
+                        <div class="font-display font-extrabold text-5xl mb-4" style="color:var(--border)">${n}</div>
+                        <div class="text-2xl mb-3">${ic}</div>
+                        <h3 class="font-display font-bold text-lg mb-2">${t}</h3>
+                        <p class="text-sm leading-relaxed" style="color:var(--muted)">${d}</p>
                     </div>
-                </div>
-            `,
+                `).join('')}
+            </div>
+            <div class="text-center mt-12">
+                <button onclick="Router.go('cars')" class="btn btn-primary" style="font-size:15px;padding:14px 32px">See Available Cars →</button>
+            </div>
+        </section>
 
-            adminDashboard: () => `
-                <div class="flex bg-surface min-h-screen">
-                    ${Views.sidebar('admin')}
-                    <div class="main-dashboard p-4 md:p-8 w-full">
-                        <h1 class="font-display text-2xl font-bold mb-6">Super Admin</h1>
-                        <div class="flex gap-1 mb-6 bg-card p-1 rounded-lg inline-flex">
-                            <button onclick="AdminCtrl.tab('users')" id="tab-users" class="px-4 py-2 text-sm rounded-md bg-accent text-black font-medium">Users</button>
-                            <button onclick="AdminCtrl.tab('cars')" id="tab-cars" class="px-4 py-2 text-sm rounded-md text-muted hover:bg-surface">Cars</button>
-                        </div>
-                        <div id="admin-content" class="bg-card border border-border rounded-xl overflow-hidden"></div>
-                    </div>
+        <!-- WHY CRUZIO -->
+        <section style="background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-20">
+                <div class="text-center mb-14">
+                    <h2 class="font-display text-3xl font-extrabold mb-3">Why Cruzio?</h2>
+                    <p style="color:var(--muted)">Premium experience, honest pricing, zero hassle</p>
                 </div>
-            `,
+                <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                    ${[
+                        ['🔑','Instant Booking','Select car, pick dates, submit — done in under 2 minutes.'],
+                        ['🛡️','Verified Fleet','Every vehicle is inspected and insured before listing.'],
+                        ['💬','Direct Support','Reach us instantly via WhatsApp or call anytime.'],
+                        ['💰','No Hidden Fees','The estimate you see is very close to what you pay.'],
+                    ].map(([ic,t,d]) => `
+                        <div class="card p-5">
+                            <div class="text-3xl mb-3">${ic}</div>
+                            <div class="font-display font-bold mb-1">${t}</div>
+                            <p class="text-sm" style="color:var(--muted)">${d}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </section>
 
-            sidebar: (role) => `
-                <div class="sidebar" id="sidebar-panel">
-                    <div class="mb-10 flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                            <!-- Updated: Local Logo in Sidebar -->
-                            <img src="./Cruzio logo.png" class="w-8 h-8 rounded object-contain">
-                            <span class="font-display font-bold">Cruzio</span>
-                        </div>
-                        <!-- Close button for mobile -->
-                        <button onclick="document.getElementById('sidebar-panel').classList.remove('open')" class="md:hidden text-muted">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-                    <nav class="flex-1 space-y-1">
-                        <a href="#" onclick="Router.navigate('home')" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted hover:text-fg hover:bg-surface transition-colors">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                            <span class="text-sm">Public Site</span>
-                        </a>
-                    </nav>
-                    <div class="border-t border-border pt-4">
-                         <button onclick="Auth.logout()" class="w-full text-left text-sm text-red-400 hover:bg-red-500/10 px-3 py-2 rounded-lg">Logout</button>
-                    </div>
+        <!-- FOOTER -->
+        <footer style="border-top:1px solid var(--border);background:var(--card)">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <div class="font-display font-bold text-xl mb-1">Cruzio<span style="color:var(--accent)">.in</span></div>
+                    <div class="text-sm" style="color:var(--muted)">A product of <strong style="color:var(--fg)">Shine Ventures</strong></div>
+                    <div class="text-sm mt-1 font-semibold" style="color:var(--accent)">${CFG.PHONE}</div>
                 </div>
-                <!-- Mobile Menu Overlay Toggle -->
-                <div class="fixed top-4 left-4 z-50 md:hidden">
-                     <button onclick="document.getElementById('sidebar-panel').classList.toggle('open')" class="p-2 bg-surface rounded-lg border border-border">
-                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
-                     </button>
+                <div class="flex gap-6 text-sm" style="color:var(--muted)">
+                    <a href="#" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">Terms</a>
+                    <a href="#" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">Privacy</a>
+                    <a href="#" onclick="Modals.open('partner-modal')" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">List Vehicle</a>
                 </div>
-            `,
+                <div class="text-xs" style="color:var(--muted)">© ${new Date().getFullYear()} Cruzio.in</div>
+            </div>
+        </footer>
+    `,
 
-            carsList: () => `
-                <div class="p-4 md:p-8 max-w-7xl mx-auto">
-                    <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                        <div>
-                            <h1 class="font-display text-2xl font-bold">Browse Cars</h1>
-                            <p class="text-sm text-muted">Available in Chennai</p>
-                        </div>
-                        <a href="${CONFIG.WHATSAPP}" target="_blank" class="btn-ghost text-sm flex items-center gap-2">
-                            Exclusive Offers? Chat Now
-                        </a>
-                    </div>
-                    <div id="cars-container">
-                        <div class="text-center py-20 text-muted">Loading cars...</div>
-                    </div>
+    cars: () => `
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
+                <div>
+                    <h1 class="font-display text-3xl font-extrabold">Our Fleet</h1>
+                    <p class="text-sm mt-1" style="color:var(--muted)">Premium cars available in Chennai — click any car to book</p>
                 </div>
-            `
+                <a href="${CFG.WA}Hi%20Cruzio%2C%20I%20need%20help%20finding%20a%20car" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none;flex-shrink:0">Need help choosing? →</a>
+            </div>
+
+            <!-- Filters -->
+            <div class="flex flex-wrap gap-2 mb-8" id="filter-row">
+                <button class="chip active" data-cat="all" onclick="CarCtrl.filter('all')">All</button>
+                ${['Sedan','SUV','Luxury','Van/MUV','Hatchback','Sports'].map(c => `
+                    <button class="chip" data-cat="${c}" onclick="CarCtrl.filter('${c}')">${c}</button>
+                `).join('')}
+            </div>
+
+            <!-- Grid -->
+            <div id="cars-grid">${loading('Loading fleet...')}</div>
+        </div>
+
+        <!-- Footer -->
+        <div style="border-top:1px solid var(--border);margin-top:60px;padding:24px 0">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 flex justify-between items-center flex-wrap gap-4">
+                <span class="text-sm" style="color:var(--muted)">© ${new Date().getFullYear()} Cruzio.in · Shine Ventures</span>
+                <a href="${CFG.WA}Hi%20Cruzio" target="_blank" class="text-sm" style="color:var(--accent);text-decoration:none">WhatsApp: ${CFG.PHONE}</a>
+            </div>
+        </div>
+    `,
+
+    carCard: (car) => `
+        <div class="car-card" onclick="Booking.open('${esc(car.id)}')">
+            <div style="position:relative">
+                <img src="${esc(car.image_url || '')}" alt="${esc(car.name)}"
+                     style="width:100%;height:210px;object-fit:cover;display:block"
+                     onerror="this.src='https://placehold.co/400x210/111113/f59e0b?text=${encodeURIComponent(car.name)}'">
+                <div style="position:absolute;top:12px;left:12px;display:flex;gap:6px">
+                    <span style="background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px">${esc(car.category)}</span>
+                </div>
+                ${car.seats ? `<span style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px">${esc(String(car.seats))} seats</span>` : ''}
+            </div>
+            <div style="padding:18px">
+                <h3 class="font-display font-bold text-lg mb-1">${esc(car.name)}</h3>
+                ${car.description ? `<p class="line-clamp-2 text-sm mb-3" style="color:var(--muted)">${esc(car.description)}</p>` : ''}
+                ${car.features && car.features.length ? `
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,3).map(f => `
+                            <span style="font-size:11px;padding:3px 9px;background:var(--surface);border:1px solid var(--border);border-radius:20px;color:var(--muted)">${esc(f.trim())}</span>
+                        `).join('')}
+                    </div>
+                ` : ''}
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+                    <div>
+                        <span class="font-display font-bold text-2xl" style="color:var(--accent)">${fmtCur(car.price_per_day)}</span>
+                        <span class="text-xs" style="color:var(--muted)">/day</span>
+                    </div>
+                    <button class="btn btn-primary btn-sm" style="pointer-events:none">Book Now →</button>
+                </div>
+            </div>
+        </div>
+    `,
+
+    admin: () => `
+        <div style="display:flex;min-height:100vh;background:var(--bg)">
+            <!-- Sidebar -->
+            <aside class="sidebar" id="admin-sidebar">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <img src="./Cruzio logo.png" style="width:32px;height:32px;border-radius:8px;object-fit:contain">
+                        <span class="font-display font-bold">Cruzio</span>
+                    </div>
+                    <button onclick="document.getElementById('admin-sidebar').classList.remove('open')" class="md:hidden" style="background:none;border:none;cursor:pointer;color:var(--muted);padding:4px">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:0 4px;margin-bottom:6px">Management</div>
+                <nav style="flex:1;display:flex;flex-direction:column;gap:2px" id="sidebar-nav">
+                    ${[['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries']].map(([id,ic,lb]) => `
+                        <button class="stab" id="stab-${id}" onclick="AdminCtrl.tab('${id}')">${ic} ${lb}</button>
+                    `).join('')}
+                </nav>
+
+                <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:4px">
+                    <a href="#" onclick="Router.go('home')" class="stab" style="text-decoration:none">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                        Public Site
+                    </a>
+                    <button class="stab" onclick="Auth.logout()" style="color:var(--red)">
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                        Logout
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Mobile sidebar toggle -->
+            <div class="md:hidden" style="position:fixed;top:12px;left:12px;z-index:50">
+                <button onclick="document.getElementById('admin-sidebar').classList.toggle('open')"
+                    style="padding:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+            </div>
+
+            <!-- Main content -->
+            <div class="admin-main" style="flex:1;padding:24px 28px" id="admin-content">
+                ${loading()}
+            </div>
+        </div>
+    `,
+};
+
+// ────────────────────────────────────────────────
+//  CAR CONTROLLER
+// ────────────────────────────────────────────────
+const CarCtrl = {
+    async init() {
+        const { data, error } = await sb.from('cars').select('*').eq('is_approved', true).order('created_at', { ascending: false });
+        const grid = document.getElementById('cars-grid');
+        if (!grid) return;
+
+        if (error || !data || !data.length) {
+            grid.innerHTML = `<div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                <div style="font-size:40px;margin-bottom:12px">🚗</div>
+                <p>No cars available right now.</p>
+                <p class="text-xs mt-2">Please contact us on WhatsApp for options.</p>
+            </div>`;
+            return;
+        }
+        S.allCars = data;
+        grid.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">${data.map(Views.carCard).join('')}</div>`;
+    },
+
+    filter(cat) {
+        document.querySelectorAll('.chip').forEach(c => {
+            c.classList.toggle('active', c.dataset.cat === cat);
+        });
+        const cars = cat === 'all' ? S.allCars : S.allCars.filter(c => c.category === cat);
+        const grid = document.getElementById('cars-grid');
+        if (!grid) return;
+        if (!cars.length) {
+            grid.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">No ${cat} cars listed yet.</div>`;
+            return;
+        }
+        grid.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">${cars.map(Views.carCard).join('')}</div>`;
+    }
+};
+
+// ────────────────────────────────────────────────
+//  BOOKING CONTROLLER
+// ────────────────────────────────────────────────
+const Booking = {
+    startPicker: null,
+    endPicker: null,
+
+    open(carId) {
+        const car = S.allCars.find(c => c.id === carId);
+        if (!car) return toast('Car not found', 'error');
+        S.car = car;
+        S.dates = { s: null, e: null };
+
+        // Reset UI
+        Booking.setStep(1);
+        document.getElementById('bk-subtitle').textContent = car.name;
+        document.getElementById('bk-img').src = car.image_url || '';
+        document.getElementById('bk-name').textContent = car.name;
+        document.getElementById('bk-cat').textContent = car.category || '';
+        document.getElementById('bk-ppd').textContent = fmtCur(car.price_per_day) + '/day';
+        document.getElementById('bk-price-box').classList.add('hidden');
+        document.getElementById('fp-start').value = '';
+        document.getElementById('fp-end').value = '';
+        ['bk-cname','bk-cphone','bk-cemail','bk-cmsg'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+        Modals.open('booking-modal');
+
+        // Destroy old pickers
+        if (Booking.startPicker) { try { Booking.startPicker.destroy(); } catch(e){} }
+        if (Booking.endPicker) { try { Booking.endPicker.destroy(); } catch(e){} }
+
+        const today = new Date().toISOString().split('T')[0];
+        setTimeout(() => {
+            Booking.startPicker = flatpickr('#fp-start', {
+                minDate: today, dateFormat: 'Y-m-d',
+                onChange: ([d], str) => {
+                    S.dates.s = str;
+                    if (Booking.endPicker) Booking.endPicker.set('minDate', str);
+                    Booking.calcPrice();
+                }
+            });
+            Booking.endPicker = flatpickr('#fp-end', {
+                minDate: today, dateFormat: 'Y-m-d',
+                onChange: ([d], str) => {
+                    S.dates.e = str;
+                    Booking.calcPrice();
+                }
+            });
+        }, 80);
+    },
+
+    calcPrice() {
+        const { s, e } = S.dates;
+        if (!s || !e) return;
+        const d = days(s, e);
+        const total = d * S.car.price_per_day;
+        document.getElementById('est-days').textContent = `${d} day${d>1?'s':''}`;
+        document.getElementById('est-rate').textContent = fmtCur(S.car.price_per_day) + '/day';
+        document.getElementById('est-total').textContent = fmtCur(total);
+        document.getElementById('bk-price-box').classList.remove('hidden');
+    },
+
+    setStep(n) {
+        [1,2,3].forEach(i => document.getElementById(`bk-s${i}`).classList.toggle('hidden', i !== n));
+        const states = {
+            1: [['sd1','active'],['sd2','idle'],['sd3','idle'],['sl1',''],['sl2','']],
+            2: [['sd1','done'],['sd2','active'],['sd3','idle'],['sl1','done'],['sl2','']],
+            3: [['sd1','done'],['sd2','done'],['sd3','done'],['sl1','done'],['sl2','done']],
+        };
+        states[n].forEach(([id, cls]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.className = el.tagName === 'DIV' && el.classList.contains('step-dot') || id.startsWith('sd')
+                ? `step-dot ${cls}` : `step-line ${cls}`;
+        });
+    },
+
+    nextStep() {
+        const { s, e } = S.dates;
+        if (!s) return toast('Please select a pickup date.', 'error');
+        if (!e) return toast('Please select a return date.', 'error');
+        if (new Date(e) <= new Date(s)) return toast('Return date must be after pickup date.', 'error');
+
+        const d = days(s, e);
+        document.getElementById('sum-car').textContent = S.car.name;
+        document.getElementById('sum-dates').textContent = `${fmtDate(s)} → ${fmtDate(e)}`;
+        document.getElementById('sum-dur').textContent = `${d} day${d>1?'s':''}`;
+        document.getElementById('sum-total').textContent = fmtCur(d * S.car.price_per_day);
+        Booking.setStep(2);
+    },
+
+    prevStep() { Booking.setStep(1); },
+
+    async submit() {
+        const name  = document.getElementById('bk-cname').value.trim();
+        const phone = document.getElementById('bk-cphone').value.trim();
+        const email = document.getElementById('bk-cemail').value.trim();
+        const msg   = document.getElementById('bk-cmsg').value.trim();
+
+        if (!name)               return toast('Please enter your name.', 'error');
+        if (phone.length < 8)    return toast('Please enter a valid phone number.', 'error');
+        if (!email.includes('@'))return toast('Please enter a valid email address.', 'error');
+
+        const { s, e } = S.dates;
+        const d = days(s, e);
+        const total = d * S.car.price_per_day;
+
+        const record = {
+            car_id: S.car.id,
+            car_name: S.car.name,
+            customer_name: name,
+            customer_phone: phone,
+            customer_email: email,
+            start_date: s,
+            end_date: e,
+            total_days: d,
+            estimated_price: total,
+            message: msg || null,
+            status: 'pending',
         };
 
-        // ================= CONTROLLERS =================
-        const CarCtrl = {
-            loadCars: async () => {
-                const container = document.getElementById('cars-container');
-                const { data, error } = await sb.from('cars').select('*').order('created_at', { ascending: false });
-                
-                if(error || !data || data.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center py-20 text-muted border border-dashed border-border rounded-xl">
-                            <p>No cars found.</p>
-                            <p class="text-xs mt-2">Please check if you have run the SQL setup script.</p>
-                        </div>
-                    `;
-                    return;
-                }
+        setBtn('bk-submit-btn', `<span class="spinner"></span> Submitting...`, true);
 
-                container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${data.map(car => `
-                        <div class="bg-card border border-border rounded-xl overflow-hidden hover:border-accent transition-colors relative">
-                            ${!car.is_approved ? `<div class="absolute top-3 left-3 z-10 bg-red-500/90 text-white text-xs font-bold px-3 py-1 rounded-full">Not Available</div>` : ''}
-                            <img src="${car.image_url || 'https://via.placeholder.com/400'}" class="w-full h-48 object-cover" alt="${car.name}">
-                            <div class="p-4">
-                                <h3 class="font-bold">${car.name}</h3>
-                                <p class="text-sm text-muted mb-3">${car.category || 'Vehicle'}</p>
-                                <div class="flex justify-between items-center">
-                                    <span class="text-accent font-bold">₹${car.price}<span class="text-xs text-muted font-normal">/day</span></span>
-                                    ${car.is_approved 
-                                        ? `<a href="${CONFIG.WHATSAPP}%20-%20${encodeURIComponent(car.name)}" target="_blank" class="btn-primary text-xs py-2 px-4">Book</a>`
-                                        : `<button disabled class="btn-ghost text-xs py-2 px-4 opacity-50">Unavailable</button>`
-                                    }
+        try {
+            // 1. Save to Supabase
+            const { error: dbErr } = await sb.from('bookings').insert([record]);
+            if (dbErr) throw dbErr;
+
+            // 2. Formspree notification
+            if (CFG.FORMSPREE && CFG.FORMSPREE !== 'YOUR_FORMSPREE_FORM_ID') {
+                fetch(`https://formspree.io/f/${CFG.FORMSPREE}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({
+                        _subject: `🚗 New Booking — ${S.car.name}`,
+                        Customer: name, Phone: phone, Email: email,
+                        Car: S.car.name, Category: S.car.category,
+                        Pickup: fmtDate(s), Return: fmtDate(e),
+                        Days: `${d} days`, Total: fmtCur(total),
+                        Message: msg || 'None',
+                    }),
+                }).catch(() => {});
+            }
+
+            // 3. Prefill WhatsApp link
+            const waMsg = encodeURIComponent(`Hi Cruzio! I just submitted a booking request.\n\nCar: ${S.car.name}\nDates: ${fmtDate(s)} → ${fmtDate(e)}\nName: ${name}\nPhone: ${phone}\n\nPlease confirm my booking.`);
+            document.getElementById('bk-wa-link').href = CFG.WA + waMsg;
+
+            // 4. Success summary
+            document.getElementById('bk-success-summary').innerHTML = `
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Car</span><strong>${esc(S.car.name)}</strong></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Dates</span><span>${fmtDate(s)} → ${fmtDate(e)}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Duration</span><span>${d} day${d>1?'s':''}</span></div>
+                <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)"><strong>Estimated Total</strong><strong style="color:var(--accent)">${fmtCur(total)}</strong></div>
+            `;
+
+            Booking.setStep(3);
+
+        } catch(err) {
+            toast('Failed to submit. Please try WhatsApp or call us directly.', 'error');
+            console.error(err);
+        }
+
+        setBtn('bk-submit-btn', 'Confirm Request', false);
+    }
+};
+
+// ────────────────────────────────────────────────
+//  PARTNER INQUIRY
+// ────────────────────────────────────────────────
+async function submitPartnerInquiry(e) {
+    e.preventDefault();
+    setBtn('partner-submit-btn', `<span class="spinner"></span> Submitting...`, true);
+    const name = document.getElementById('p-name').value;
+    const phone = document.getElementById('p-phone').value;
+    const email = document.getElementById('p-email').value;
+    const vehicle = document.getElementById('p-vehicle').value;
+    try {
+        await sb.from('partner_inquiries').insert([{ name, phone, email, vehicle_details: vehicle }]);
+        if (CFG.FORMSPREE && CFG.FORMSPREE !== 'YOUR_FORMSPREE_FORM_ID') {
+            fetch(`https://formspree.io/f/${CFG.FORMSPREE}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ _subject: `🚘 Partner Inquiry — ${name}`, name, phone, email, vehicle }),
+            }).catch(() => {});
+        }
+        Modals.close('partner-modal');
+        toast('Inquiry submitted! We\'ll reach out to you shortly.');
+        e.target.reset();
+    } catch(err) {
+        toast('Failed to submit. Please WhatsApp us directly.', 'error');
+    }
+    setBtn('partner-submit-btn', 'Submit Inquiry', false);
+}
+
+// ────────────────────────────────────────────────
+//  CAR LIVE TOGGLE (in add/edit form)
+// ────────────────────────────────────────────────
+function toggleCarLive() {
+    const cb = document.getElementById('c-live');
+    if (!cb) return;
+    cb.checked = !cb.checked;
+    document.getElementById('c-live-toggle').classList.toggle('on', cb.checked);
+}
+
+// ────────────────────────────────────────────────
+//  ADMIN CONTROLLER
+// ────────────────────────────────────────────────
+const AdminCtrl = {
+    init() { AdminCtrl.tab('bookings'); },
+
+    tab(name) {
+        document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+        const active = document.getElementById(`stab-${name}`);
+        if (active) active.classList.add('active');
+        const c = document.getElementById('admin-content');
+        c.innerHTML = loading();
+        if (name === 'bookings')   AdminCtrl.bookings();
+        if (name === 'cars')       AdminCtrl.fleet();
+        if (name === 'inquiries')  AdminCtrl.inquiries();
+    },
+
+    // ── BOOKINGS ──
+    async bookings() {
+        const { data } = await sb.from('bookings').select('*').order('created_at', { ascending: false });
+        const c = document.getElementById('admin-content');
+        const pending = (data||[]).filter(b => b.status === 'pending');
+        const rest    = (data||[]).filter(b => b.status !== 'pending');
+
+        c.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 class="font-display text-2xl font-extrabold">Booking Requests</h2>
+                    <p class="text-sm mt-1" style="color:var(--muted)">${pending.length} pending · ${(data||[]).length} total</p>
+                </div>
+            </div>
+
+            ${pending.length ? `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:spin 2s linear infinite"></span>
+                    <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Needs Action</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px">
+                    ${pending.map(AdminCtrl.bookingCard).join('')}
+                </div>
+            ` : ''}
+
+            ${rest.length ? `
+                <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">History</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    ${rest.map(AdminCtrl.bookingCard).join('')}
+                </div>
+            ` : ''}
+
+            ${!data || !data.length ? `
+                <div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                    <div style="font-size:40px;margin-bottom:12px">📋</div>
+                    <p>No booking requests yet.</p>
+                </div>
+            ` : ''}
+        `;
+    },
+
+    bookingCard: (b) => `
+        <div style="background:var(--card);border:1px solid ${b.status === 'pending' ? 'rgba(245,158,11,.35)' : 'var(--border)'};border-radius:14px;padding:16px;${b.status==='pending'?'border-left:3px solid var(--accent)':''}">
+            <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px">
+                <div style="flex:1;min-width:0">
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                        <span class="font-display font-bold">${esc(b.customer_name)}</span>
+                        <span class="badge badge-${b.status}">${b.status.toUpperCase()}</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted);margin-bottom:4px">
+                        <span>🚗 <strong style="color:var(--fg)">${esc(b.car_name)}</strong></span>
+                        <span>📅 ${fmtDate(b.start_date)} → ${fmtDate(b.end_date)}</span>
+                        <span>⏱ ${b.total_days} day${b.total_days>1?'s':''}</span>
+                        <span class="font-bold" style="color:var(--accent)">${fmtCur(b.estimated_price)}</span>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)">
+                        <span>📱 <a href="tel:${esc(b.customer_phone)}" style="color:var(--accent);text-decoration:none">${esc(b.customer_phone)}</a></span>
+                        <span>✉ <a href="mailto:${esc(b.customer_email)}" style="color:var(--muted);text-decoration:none">${esc(b.customer_email)}</a></span>
+                    </div>
+                    ${b.message ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;font-style:italic">"${esc(b.message)}"</div>` : ''}
+                    <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(b.created_at).toLocaleString('en-IN')}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        <a href="tel:${esc(b.customer_phone)}" class="btn btn-ghost btn-sm" style="text-decoration:none">📞 Call</a>
+                        <a href="${CFG.WA}${encodeURIComponent(`Hi ${b.customer_name}, this is Cruzio. Regarding your booking request for ${b.car_name}.`)}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">WhatsApp</a>
+                    </div>
+                    ${b.status === 'pending' ? `
+                        <div style="display:flex;gap:6px">
+                            <button class="btn btn-success" onclick="AdminCtrl.updateBooking('${esc(b.id)}','approved')">✓ Approve</button>
+                            <button class="btn btn-danger" onclick="AdminCtrl.updateBooking('${esc(b.id)}','rejected')">✕ Reject</button>
+                        </div>
+                    ` : ''}
+                    ${b.status !== 'pending' ? `<button class="btn btn-ghost btn-sm" onclick="AdminCtrl.updateBooking('${esc(b.id)}','pending')">Revert to Pending</button>` : ''}
+                </div>
+            </div>
+        </div>
+    `,
+
+    async updateBooking(id, status) {
+        await sb.from('bookings').update({ status }).eq('id', id);
+        toast(status === 'approved' ? '✓ Booking approved' : status === 'rejected' ? 'Booking rejected' : 'Status reverted');
+        AdminCtrl.bookings();
+    },
+
+    // ── FLEET ──
+    async fleet() {
+        const { data } = await sb.from('cars').select('*').order('created_at', { ascending: false });
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 class="font-display text-2xl font-extrabold">Fleet Management</h2>
+                    <p class="text-sm mt-1" style="color:var(--muted)">${(data||[]).length} cars · ${(data||[]).filter(c=>c.is_approved).length} live</p>
+                </div>
+                <button onclick="AdminCtrl.openCarForm()" class="btn btn-primary">+ Add Car</button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${(data||[]).map(car => `
+                    <div class="card" style="overflow:hidden">
+                        <img src="${esc(car.image_url||'')}" alt="${esc(car.name)}"
+                             style="width:100%;height:150px;object-fit:cover;display:block"
+                             onerror="this.src='https://placehold.co/400x150/111113/f59e0b?text=${encodeURIComponent(car.name)}'">
+                        <div style="padding:14px">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+                                <div>
+                                    <div class="font-display font-bold">${esc(car.name)}</div>
+                                    <div class="text-xs" style="color:var(--muted)">${esc(car.category)} ${car.seats ? '· '+car.seats+' seats' : ''}</div>
+                                </div>
+                                <span class="badge ${car.is_approved ? 'badge-live' : 'badge-hidden'}">${car.is_approved ? 'LIVE' : 'HIDDEN'}</span>
+                            </div>
+                            <div class="font-display font-bold mb-3" style="color:var(--accent)">${fmtCur(car.price_per_day)}/day</div>
+                            <div style="display:flex;gap:8px">
+                                <button onclick="AdminCtrl.openCarForm('${esc(car.id)}')" class="btn btn-ghost btn-sm" style="flex:1">Edit</button>
+                                <button onclick="AdminCtrl.toggleCar('${esc(car.id)}',${!car.is_approved})"
+                                    class="btn btn-sm" style="flex:1;background:${car.is_approved?'rgba(239,68,68,.1)':'rgba(34,197,94,.1)'};color:${car.is_approved?'var(--red)':'var(--green)'};border:1px solid ${car.is_approved?'rgba(239,68,68,.25)':'rgba(34,197,94,.25)'}">
+                                    ${car.is_approved ? 'Hide' : 'Publish'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+                ${!data || !data.length ? `
+                    <div class="col-span-full" style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                        <div style="font-size:40px;margin-bottom:12px">🚗</div>
+                        <p>No cars yet. Click "+ Add Car" to get started.</p>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    },
+
+    async openCarForm(id) {
+        document.getElementById('c-id').value = '';
+        document.getElementById('c-name').value = '';
+        document.getElementById('c-cat').value = '';
+        document.getElementById('c-price').value = '';
+        document.getElementById('c-seats').value = '';
+        document.getElementById('c-img').value = '';
+        document.getElementById('c-desc').value = '';
+        document.getElementById('c-feats').value = '';
+        document.getElementById('c-live').checked = false;
+        document.getElementById('c-live-toggle').classList.remove('on');
+        document.getElementById('car-modal-title').textContent = id ? 'Edit Car' : 'Add Car';
+
+        if (id) {
+            const { data } = await sb.from('cars').select('*').eq('id', id).single();
+            if (data) {
+                document.getElementById('c-id').value = data.id;
+                document.getElementById('c-name').value = data.name || '';
+                document.getElementById('c-cat').value = data.category || '';
+                document.getElementById('c-price').value = data.price_per_day || '';
+                document.getElementById('c-seats').value = data.seats || '';
+                document.getElementById('c-img').value = data.image_url || '';
+                document.getElementById('c-desc').value = data.description || '';
+                document.getElementById('c-feats').value = Array.isArray(data.features) ? data.features.join(', ') : (data.features || '');
+                document.getElementById('c-live').checked = !!data.is_approved;
+                document.getElementById('c-live-toggle').classList.toggle('on', !!data.is_approved);
+            }
+        }
+        Modals.open('car-modal');
+    },
+
+    async saveCar(e) {
+        e.preventDefault();
+        setBtn('save-car-btn', `<span class="spinner"></span> Saving...`, true);
+        const editId = document.getElementById('c-id').value;
+        const featsRaw = document.getElementById('c-feats').value;
+        const features = featsRaw ? featsRaw.split(',').map(f=>f.trim()).filter(Boolean) : null;
+        const carData = {
+            name: document.getElementById('c-name').value.trim(),
+            category: document.getElementById('c-cat').value,
+            price_per_day: parseInt(document.getElementById('c-price').value),
+            seats: parseInt(document.getElementById('c-seats').value) || null,
+            image_url: document.getElementById('c-img').value.trim() || null,
+            description: document.getElementById('c-desc').value.trim() || null,
+            features,
+            is_approved: document.getElementById('c-live').checked,
+        };
+        try {
+            if (editId) {
+                const { error } = await sb.from('cars').update(carData).eq('id', editId);
+                if (error) throw error;
+                toast('Car updated!');
+            } else {
+                const { error } = await sb.from('cars').insert([carData]);
+                if (error) throw error;
+                toast('Car added!');
+            }
+            Modals.close('car-modal');
+            AdminCtrl.fleet();
+        } catch(err) {
+            toast(err.message || 'Failed to save.', 'error');
+        }
+        setBtn('save-car-btn', 'Save Car', false);
+    },
+
+    async toggleCar(id, status) {
+        await sb.from('cars').update({ is_approved: status }).eq('id', id);
+        toast(status ? '✓ Car is now live' : 'Car hidden from listing');
+        AdminCtrl.fleet();
+    },
+
+    // ── INQUIRIES ──
+    async inquiries() {
+        const { data } = await sb.from('partner_inquiries').select('*').order('created_at', { ascending: false });
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `
+            <div style="margin-bottom:24px">
+                <h2 class="font-display text-2xl font-extrabold">Partner Inquiries</h2>
+                <p class="text-sm mt-1" style="color:var(--muted)">People interested in listing their vehicles with Cruzio</p>
+            </div>
+            ${!data || !data.length ? `
+                <div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                    <div style="font-size:40px;margin-bottom:12px">💬</div>
+                    <p>No partner inquiries yet.</p>
+                </div>
+            ` : `
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    ${data.map(i => `
+                        <div class="card" style="padding:16px">
+                            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                                <div>
+                                    <div class="font-display font-bold mb-1">${esc(i.name)}</div>
+                                    <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted)">
+                                        <span>📱 <a href="tel:${esc(i.phone)}" style="color:var(--accent);text-decoration:none">${esc(i.phone)}</a></span>
+                                        ${i.email ? `<span>✉ ${esc(i.email)}</span>` : ''}
+                                    </div>
+                                    ${i.vehicle_details ? `<div style="font-size:13px;color:var(--muted);margin-top:4px">🚗 ${esc(i.vehicle_details)}</div>` : ''}
+                                    <div style="font-size:11px;color:var(--muted);margin-top:6px">${new Date(i.created_at).toLocaleString('en-IN')}</div>
+                                </div>
+                                <div style="display:flex;gap:6px;align-items:flex-start">
+                                    <a href="tel:${esc(i.phone)}" class="btn btn-ghost btn-sm" style="text-decoration:none">📞 Call</a>
+                                    <a href="${CFG.WA}${encodeURIComponent(`Hi ${i.name}, this is Cruzio. We received your vehicle listing inquiry and would love to connect!`)}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">WhatsApp</a>
                                 </div>
                             </div>
                         </div>
                     `).join('')}
-                </div>`;
-            }
-        };
+                </div>
+            `}
+        `;
+    }
+};
 
-        const PartnerCtrl = {
-            init: async () => {
-                const { data } = await sb.from('cars').select('*').eq('owner_id', App.user.id);
-                const tbody = document.getElementById('partner-cars-tbody');
-                if(data && data.length > 0) {
-                    tbody.innerHTML = data.map(c => `
-                        <tr class="border-b border-border hover:bg-surface/50">
-                            <td class="p-4">${c.name}</td>
-                            <td class="p-4"><span class="px-2 py-1 rounded text-xs ${c.is_approved ? 'bg-green-500/20 text-green-500' : 'bg-amber-500/20 text-amber-500'}">${c.is_approved ? 'Live' : 'Pending'}</span></td>
-                            <td class="p-4">₹${c.price}</td>
-                        </tr>
-                    `).join('');
-                } else {
-                    tbody.innerHTML = '<tr><td colspan="3" class="p-8 text-center text-muted">No cars listed.</td></tr>';
-                }
-            },
-            addCar: async () => {
-                const name = prompt("Car Name:");
-                if(!name) return;
-                const price = prompt("Price:");
-                if(!price) return;
-                await sb.from('cars').insert([{ owner_id: App.user.id, name, price, category: 'sedan' }]);
-                App.toast("Car submitted for approval");
-                PartnerCtrl.init();
-            }
-        };
-
-        const AdminCtrl = {
-            init: () => AdminCtrl.tab('users'),
-            
-            tab: async (t) => {
-                document.querySelectorAll('[id^="tab-"]').forEach(b => {
-                    b.classList.remove('bg-accent', 'text-black');
-                    b.classList.add('text-muted');
-                });
-                document.getElementById(`tab-${t}`).classList.add('bg-accent', 'text-black');
-                document.getElementById(`tab-${t}`).classList.remove('text-muted');
-                
-                const container = document.getElementById('admin-content');
-                container.innerHTML = '<div class="p-8 text-center text-muted">Loading...</div>';
-
-                if(t === 'users') {
-                    const { data } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
-                    container.innerHTML = `
-                        <div class="overflow-x-auto">
-                        <table class="w-full min-w-[500px]">
-                            <thead class="border-b border-border"><tr><th class="text-left p-4 text-xs text-muted">USER</th><th class="text-left p-4 text-xs text-muted">ROLE</th><th class="text-left p-4 text-xs text-muted">KYC</th><th class="text-left p-4 text-xs text-muted">ACTION</th></tr></thead>
-                            <tbody>
-                                ${data.map(u => `
-                                    <tr class="border-b border-border hover:bg-surface/50">
-                                        <td class="p-4"><div class="font-medium">${u.full_name}</div><div class="text-xs text-muted">${u.phone}</div></td>
-                                        <td class="p-4 capitalize">${u.role}</td>
-                                        <td class="p-4"><span class="px-2 py-1 rounded text-xs ${u.kyc_status === 'approved' ? 'bg-green-500/20 text-green-500' : 'bg-amber-500/20 text-amber-500'}">${u.kyc_status}</span></td>
-                                        <td class="p-4">
-                                            ${u.kyc_status === 'submitted' ? `<button onclick="AdminCtrl.approve('${u.id}')" class="text-xs bg-green-500/20 text-green-500 px-3 py-1 rounded">Approve</button>` : ''}
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                        </div>
-                    `;
-                }
-
-                if(t === 'cars') {
-                    const { data } = await sb.from('cars').select('*, profiles(full_name)').order('created_at', { ascending: false });
-                    container.innerHTML = `
-                        <div class="overflow-x-auto">
-                        <table class="w-full min-w-[500px]">
-                             <thead class="border-b border-border"><tr><th class="text-left p-4 text-xs text-muted">CAR</th><th class="text-left p-4 text-xs text-muted">OWNER</th><th class="text-left p-4 text-xs text-muted">STATUS</th></tr></thead>
-                             <tbody>
-                                ${data.map(c => `
-                                    <tr class="border-b border-border hover:bg-surface/50">
-                                        <td class="p-4">${c.name}</td>
-                                        <td class="p-4">${c.profiles?.full_name || 'Fleet'}</td>
-                                        <td class="p-4">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-xs text-muted">${c.is_approved ? 'Live' : 'Pending'}</span>
-                                                <div onclick="AdminCtrl.toggleCar('${c.id}', ${!c.is_approved})" class="toggle-switch ${c.is_approved ? 'active' : ''}"></div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                `).join('')}
-                             </tbody>
-                        </table>
-                        </div>
-                    `;
-                }
-            },
-
-            approve: async (id) => {
-                await sb.from('profiles').update({ kyc_status: 'approved' }).eq('id', id);
-                AdminCtrl.tab('users');
-                App.toast('KYC Approved');
-            },
-
-            toggleCar: async (id, status) => {
-                await sb.from('cars').update({ is_approved: status }).eq('id', id);
-                AdminCtrl.tab('cars');
-                App.toast(status ? 'Car Approved' : 'Car Unlisted');
-            }
-        };
-
-        // Initialize App
-        document.addEventListener('DOMContentLoaded', App.init);
-    </script>
+// ────────────────────────────────────────────────
+//  INIT
+// ────────────────────────────────────────────────
+(async () => {
+    Theme.apply(localStorage.getItem('theme') || 'dark');
+    await Auth.init();
+    Router.init();
+})();
+</script>
 </body>
 </html>
