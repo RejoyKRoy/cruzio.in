@@ -241,7 +241,7 @@
 <!-- ══════════════════════════════════════════════ -->
 <nav id="top-nav">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
-        <a href="#" onclick="Router.go('home')" class="flex items-center gap-3" style="text-decoration:none">
+        <a href="#home" class="flex items-center gap-3" style="text-decoration:none">
             <img src="./Cruzio logo.png" alt="Cruzio" class="w-9 h-9 rounded-xl object-contain">
             <div>
                 <div class="font-display font-bold text-base leading-none">Cruzio<span style="color:var(--accent)">.in</span></div>
@@ -250,7 +250,7 @@
         </a>
 
         <div class="hidden md:flex items-center gap-8">
-            <a href="#" onclick="Router.go('home')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Home</a>
+            <a href="#home" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Home</a>
             <a href="#" onclick="Router.go('cars')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Browse Cars</a>
             <a href="#" onclick="Modals.open('partner-modal')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">List Your Vehicle</a>
         </div>
@@ -462,8 +462,30 @@
                 </div>
             </div>
             <div>
-                <label class="lbl">IMAGE URL</label>
-                <input type="url" id="c-img" class="inp" placeholder="https://...">
+                <label class="lbl">CAR PHOTO</label>
+                <div id="img-upload-area"
+                     style="border:2px dashed var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .2s;position:relative"
+                     onmouseover="this.style.borderColor='var(--accent)'"
+                     onmouseout="this.style.borderColor='var(--border)'"
+                     onclick="document.getElementById('c-img-file').click()">
+                    <!-- Placeholder shown when no image -->
+                    <div id="img-preview-wrap" style="padding:28px;text-align:center">
+                        <div style="font-size:32px;margin-bottom:8px">🖼️</div>
+                        <div style="font-size:13px;color:var(--muted);font-weight:500">Click to upload a photo</div>
+                        <div style="font-size:11px;color:var(--muted);margin-top:4px">JPG, PNG, WEBP · Max 5MB</div>
+                    </div>
+                    <!-- Preview image shown after selection -->
+                    <img id="c-img-preview" src="" alt="Preview"
+                         style="display:none;width:100%;height:180px;object-fit:cover;pointer-events:none">
+                    <!-- Change overlay shown on hover when image exists -->
+                    <div id="img-change-overlay"
+                         style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff">
+                        Click to change photo
+                    </div>
+                    <input type="file" id="c-img-file" accept="image/*" style="display:none" onchange="previewCarImage(this)">
+                </div>
+                <!-- Hidden field stores the final URL (existing or newly uploaded) -->
+                <input type="hidden" id="c-img">
             </div>
             <div>
                 <label class="lbl">DESCRIPTION</label>
@@ -540,7 +562,11 @@
 const CFG = {
     SB_URL:  'https://flxjlkxfydsrruszrldy.supabase.co',
     SB_KEY:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
-    FORMSPREE: 'xvzbylez', // ← replace with your ID
+    FORMSPREE: 'xvzbylez',
+    BREVO_KEY: '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',
+    SENDER_EMAIL: 'bookings@cruzio.in',
+    SENDER_NAME: 'Cruzio Car Rental',
+    ADMIN_EMAIL: 'admin@cruzio.in', // ← your email to receive booking alerts
     PHONE:    '+91 96053 70108',
     WA:       'https://wa.me/919605370108?text=',
 };
@@ -556,6 +582,181 @@ const S = {
     car: null,           // selected car for booking
     dates: { s: null, e: null },
     allCars: [],
+};
+
+// ────────────────────────────────────────────────
+//  EMAIL — Brevo Transactional API
+// ────────────────────────────────────────────────
+const Email = {
+
+    async send({ to, toName, subject, html }) {
+        if (!CFG.BREVO_KEY) return;
+        try {
+            await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                    'api-key': CFG.BREVO_KEY,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    sender: { name: CFG.SENDER_NAME, email: CFG.SENDER_EMAIL },
+                    to: [{ email: to, name: toName || to }],
+                    subject,
+                    htmlContent: html,
+                }),
+            });
+        } catch(e) { console.warn('Brevo send failed:', e); }
+    },
+
+    // ── Email templates ──────────────────────────
+
+    // To customer: booking received
+    bookingReceived(b, total) {
+        return Email.send({
+            to: b.customer_email,
+            toName: b.customer_name,
+            subject: `✅ Booking Request Received — ${b.car_name} | Cruzio`,
+            html: Email._wrap(`
+                <h2 style="margin:0 0 6px;font-size:22px;color:#f5f5f0">Hi ${b.customer_name} 👋</h2>
+                <p style="color:#888;margin:0 0 24px;line-height:1.7">We've received your rental request for <strong style="color:#f59e0b">${b.car_name}</strong> and our team will call you within <strong style="color:#f59e0b">30 minutes</strong> to confirm the booking.</p>
+                ${Email._table([
+                    ['🚗 Car', b.car_name],
+                    ['📅 Pickup Date', fmtDate(b.start_date)],
+                    ['🏁 Return Date', fmtDate(b.end_date)],
+                    ['⏱ Duration', `${b.total_days} day${b.total_days > 1 ? 's' : ''}`],
+                    ['💰 Estimated Total', fmtCur(total)],
+                ])}
+                ${b.message ? `<div style="margin-top:20px;padding:14px 16px;background:#1a1a1c;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0"><p style="margin:0;font-size:13px;color:#aaa">📝 Your note: "<em>${b.message}</em>"</p></div>` : ''}
+                <div style="margin-top:28px;padding:18px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:12px">
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">📞 We'll call you at <strong style="color:#f59e0b">${b.customer_phone}</strong> shortly. If you need to reach us in the meantime, WhatsApp us at <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">+91 96053 70108</a>.</p>
+                </div>
+            `)
+        });
+    },
+
+    // To customer: booking confirmed
+    bookingApproved(b) {
+        return Email.send({
+            to: b.customer_email,
+            toName: b.customer_name,
+            subject: `🎉 Booking Confirmed — ${b.car_name} | Cruzio`,
+            html: Email._wrap(`
+                <div style="text-align:center;margin-bottom:32px">
+                    <div style="width:68px;height:68px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:16px">✅</div>
+                    <h2 style="margin:0 0 8px;font-size:26px;color:#f5f5f0">Your Booking is Confirmed!</h2>
+                    <p style="color:#888;margin:0">Get ready for a premium drive with Cruzio.</p>
+                </div>
+                ${Email._table([
+                    ['🚗 Car', b.car_name],
+                    ['📅 Pickup Date', fmtDate(b.start_date)],
+                    ['🏁 Return Date', fmtDate(b.end_date)],
+                    ['⏱ Duration', `${b.total_days} day${b.total_days > 1 ? 's' : ''}`],
+                    ['💰 Estimated Total', fmtCur(b.estimated_price)],
+                    ['📋 Status', '<span style="color:#22c55e;font-weight:700">CONFIRMED</span>'],
+                ])}
+                <div style="margin-top:24px;padding:18px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:12px">
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">Our team will contact you shortly with final pickup location and payment details. For any questions, WhatsApp us at <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">+91 96053 70108</a>.</p>
+                </div>
+                <div style="margin-top:20px;text-align:center">
+                    <a href="https://wa.me/919605370108" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0a0a0b;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">View Booking Details on WhatsApp</a>
+                </div>
+            `)
+        });
+    },
+
+    // To customer: booking rejected
+    bookingRejected(b) {
+        return Email.send({
+            to: b.customer_email,
+            toName: b.customer_name,
+            subject: `Regarding Your Booking Request — ${b.car_name} | Cruzio`,
+            html: Email._wrap(`
+                <h2 style="margin:0 0 8px;font-size:22px;color:#f5f5f0">Hi ${b.customer_name},</h2>
+                <p style="color:#888;margin:0 0 20px;line-height:1.7">We're sorry — we're unable to confirm your booking request for <strong style="color:#f5f5f0">${b.car_name}</strong> for the requested dates. This may be due to availability or a scheduling conflict.</p>
+                ${Email._table([
+                    ['🚗 Car Requested', b.car_name],
+                    ['📅 Requested Pickup', fmtDate(b.start_date)],
+                    ['🏁 Requested Return', fmtDate(b.end_date)],
+                ])}
+                <div style="margin-top:24px;padding:18px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:12px">
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">We'd love to help you find an alternative. Browse our other available cars or chat with us directly — we'll do our best to accommodate you.</p>
+                </div>
+                <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+                    <a href="https://cruzio.in/#cars" style="display:inline-block;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b;padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">Browse Other Cars</a>
+                    <a href="https://wa.me/919605370108" style="display:inline-block;background:#25D366;color:#fff;padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">WhatsApp Us to Reschedule</a>
+                </div>
+            `)
+        });
+    },
+
+    // To admin: new booking alert
+    adminNewBooking(b, total) {
+        if (!CFG.ADMIN_EMAIL) return;
+        return Email.send({
+            to: CFG.ADMIN_EMAIL,
+            toName: 'Cruzio Admin',
+            subject: `🔔 New Booking Request — ${b.car_name} (${b.customer_name})`,
+            html: Email._wrap(`
+                <div style="display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:.06em;margin-bottom:20px">NEW BOOKING REQUEST</div>
+                <h2 style="margin:0 0 20px;font-size:22px;color:#f5f5f0">Action Required</h2>
+                ${Email._table([
+                    ['👤 Customer', b.customer_name],
+                    ['📱 Phone', `<a href="tel:${b.customer_phone}" style="color:#f59e0b;text-decoration:none">${b.customer_phone}</a>`],
+                    ['✉ Email', b.customer_email],
+                    ['🚗 Car', b.car_name],
+                    ['📅 Pickup', fmtDate(b.start_date)],
+                    ['🏁 Return', fmtDate(b.end_date)],
+                    ['⏱ Duration', `${b.total_days} day${b.total_days > 1 ? 's' : ''}`],
+                    ['💰 Est. Total', fmtCur(total)],
+                    ['🕐 Submitted', new Date(b.created_at || Date.now()).toLocaleString('en-IN')],
+                ])}
+                ${b.message ? `<div style="margin-top:16px;padding:14px 16px;background:#1a1a1c;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0"><p style="margin:0;font-size:13px;color:#aaa">Customer note: "<em>${b.message}</em>"</p></div>` : ''}
+                <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+                    <a href="https://cruzio.in/#admin" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0a0a0b;padding:13px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Open Admin Panel →</a>
+                    <a href="https://wa.me/91${b.customer_phone.replace(/\D/g,'')}" style="display:inline-block;background:#25D366;color:#fff;padding:13px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">WhatsApp Customer</a>
+                </div>
+            `)
+        });
+    },
+
+    // ── Shared HTML helpers ───────────────────────
+
+    _table(rows) {
+        return `<table style="width:100%;border-collapse:collapse;margin:0 0 4px">
+            ${rows.map(([k, v]) => `
+                <tr style="border-bottom:1px solid #1f1f22">
+                    <td style="padding:11px 14px;color:#777;font-size:13px;width:42%;vertical-align:top">${k}</td>
+                    <td style="padding:11px 14px;font-weight:600;font-size:13px;color:#f5f5f0">${v}</td>
+                </tr>
+            `).join('')}
+        </table>`;
+    },
+
+    _wrap(content) {
+        return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#080809;font-family:Arial,sans-serif;-webkit-font-smoothing:antialiased">
+    <div style="max-width:580px;margin:0 auto;padding:32px 16px">
+        <!-- Logo header -->
+        <div style="margin-bottom:28px;display:flex;align-items:center;gap:12px">
+            <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;color:#f5f5f0">Cruzio<span style="color:#f59e0b">.in</span></div>
+            <div style="font-size:10px;color:#555;letter-spacing:.14em;margin-top:2px">SHINE VENTURES</div>
+        </div>
+        <!-- Card -->
+        <div style="background:#111113;border:1px solid #1f1f22;border-radius:16px;padding:28px 24px">
+            ${content}
+        </div>
+        <!-- Footer -->
+        <div style="text-align:center;margin-top:24px;font-size:12px;color:#444;line-height:1.8">
+            © ${new Date().getFullYear()} Cruzio.in · Shine Ventures · Chennai, India<br>
+            <a href="https://cruzio.in/#terms" style="color:#555;text-decoration:none">Terms</a> &nbsp;·&nbsp;
+            <a href="https://cruzio.in/#privacy" style="color:#555;text-decoration:none">Privacy</a> &nbsp;·&nbsp;
+            <a href="https://cruzio.in" style="color:#555;text-decoration:none">cruzio.in</a>
+        </div>
+    </div>
+</body></html>`;
+    }
 };
 
 // ────────────────────────────────────────────────
@@ -889,8 +1090,8 @@ const Views = {
                     <div class="text-sm mt-1 font-semibold" style="color:var(--accent)">${CFG.PHONE}</div>
                 </div>
                 <div class="flex gap-6 text-sm" style="color:var(--muted)">
-                    <a href="#" onclick="Router.go('terms')" style="color:var(--muted);text-decoration:none">Terms</a>
-                    <a href="#" onclick="Router.go('privacy')" style="color:var(--muted);text-decoration:none">Privacy</a>
+                    <a href="#terms" style="color:var(--muted);text-decoration:none">Terms</a>
+                    <a href="#privacy" style="color:var(--muted);text-decoration:none">Privacy</a>
                     <a href="#" onclick="Modals.open('partner-modal')" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">List Vehicle</a>
                 </div>
                 <div class="text-xs" style="color:var(--muted)">© ${new Date().getFullYear()} Cruzio.in</div>
@@ -932,7 +1133,7 @@ const Views = {
   terms: () => `
         <div class="max-w-4xl mx-auto px-4 sm:px-6 py-14">
             <div class="mb-10">
-                <a href="#" onclick="Router.go('home')" style="font-size:13px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:24px">
+                <a href="#home" style="font-size:13px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:24px">
                     ← Back to Home
                 </a>
                 <h1 class="font-display text-4xl font-extrabold mb-2">Terms &amp; Conditions</h1>
@@ -1019,7 +1220,7 @@ const Views = {
     privacy: () => `
         <div class="max-w-4xl mx-auto px-4 sm:px-6 py-14">
             <div class="mb-10">
-                <a href="#" onclick="Router.go('home')" style="font-size:13px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:24px">
+                <a href="#home" style="font-size:13px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:24px">
                     ← Back to Home
                 </a>
                 <h1 class="font-display text-4xl font-extrabold mb-2">Privacy Policy</h1>
@@ -1118,6 +1319,8 @@ const Views = {
             </div>
         </div>
     `,
+
+    carCard: (car) => `
         <div class="car-card" onclick="Booking.open('${esc(car.id)}')">
             <div style="position:relative">
                 <img src="${esc(car.image_url || '')}" alt="${esc(car.name)}"
@@ -1171,7 +1374,7 @@ const Views = {
                 </nav>
 
                 <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:4px">
-                    <a href="#" onclick="Router.go('home')" class="stab" style="text-decoration:none">
+                    <a href="#home" class="stab" style="text-decoration:none">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                         Public Site
                     </a>
@@ -1378,6 +1581,10 @@ const Booking = {
                 }).catch(() => {});
             }
 
+            // 3. Brevo emails — customer confirmation + admin alert
+            Email.bookingReceived(record, total);
+            Email.adminNewBooking(record, total);
+
             // 3. Prefill WhatsApp link
             const waMsg = encodeURIComponent(`Hi Cruzio! I just submitted a booking request.\n\nCar: ${S.car.name}\nDates: ${fmtDate(s)} → ${fmtDate(e)}\nName: ${name}\nPhone: ${phone}\n\nPlease confirm my booking.`);
             document.getElementById('bk-wa-link').href = CFG.WA + waMsg;
@@ -1426,6 +1633,49 @@ async function submitPartnerInquiry(e) {
         toast('Failed to submit. Please WhatsApp us directly.', 'error');
     }
     setBtn('partner-submit-btn', 'Submit Inquiry', false);
+}
+
+// ────────────────────────────────────────────────
+//  CAR IMAGE PREVIEW & UPLOAD HELPERS
+// ────────────────────────────────────────────────
+function previewCarImage(input) {
+    const file = input.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+        toast('Image must be under 5MB', 'error');
+        input.value = '';
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const preview = document.getElementById('c-img-preview');
+        const wrap    = document.getElementById('img-preview-wrap');
+        const overlay = document.getElementById('img-change-overlay');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        wrap.style.display = 'none';
+        overlay.style.display = 'flex';
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetCarImageUI() {
+    document.getElementById('c-img-file').value = '';
+    document.getElementById('c-img-preview').src = '';
+    document.getElementById('c-img-preview').style.display = 'none';
+    document.getElementById('img-preview-wrap').style.display = 'block';
+    document.getElementById('img-change-overlay').style.display = 'none';
+}
+
+function showExistingCarImage(url) {
+    if (!url) return resetCarImageUI();
+    const preview = document.getElementById('c-img-preview');
+    const wrap    = document.getElementById('img-preview-wrap');
+    const overlay = document.getElementById('img-change-overlay');
+    preview.src = url;
+    preview.style.display = 'block';
+    wrap.style.display = 'none';
+    overlay.style.display = 'flex';
 }
 
 // ────────────────────────────────────────────────
@@ -1536,7 +1786,16 @@ const AdminCtrl = {
 
     async updateBooking(id, status) {
         await sb.from('bookings').update({ status }).eq('id', id);
-        toast(status === 'approved' ? '✓ Booking approved' : status === 'rejected' ? 'Booking rejected' : 'Status reverted');
+        // Fetch full record so we can send the right email
+        const { data: b } = await sb.from('bookings').select('*').eq('id', id).single();
+        if (b) {
+            if (status === 'approved')  Email.bookingApproved(b);
+            if (status === 'rejected')  Email.bookingRejected(b);
+        }
+        const label = status === 'approved' ? '✓ Approved — confirmation email sent'
+                    : status === 'rejected' ? 'Rejected — email sent to customer'
+                    : 'Status reverted to pending';
+        toast(label, status === 'rejected' ? 'error' : 'success');
         AdminCtrl.bookings();
     },
 
@@ -1599,6 +1858,7 @@ const AdminCtrl = {
         document.getElementById('c-live').checked = false;
         document.getElementById('c-live-toggle').classList.remove('on');
         document.getElementById('car-modal-title').textContent = id ? 'Edit Car' : 'Add Car';
+        resetCarImageUI();
 
         if (id) {
             const { data } = await sb.from('cars').select('*').eq('id', id).single();
@@ -1613,6 +1873,7 @@ const AdminCtrl = {
                 document.getElementById('c-feats').value = Array.isArray(data.features) ? data.features.join(', ') : (data.features || '');
                 document.getElementById('c-live').checked = !!data.is_approved;
                 document.getElementById('c-live-toggle').classList.toggle('on', !!data.is_approved);
+                showExistingCarImage(data.image_url || '');
             }
         }
         Modals.open('car-modal');
@@ -1621,18 +1882,38 @@ const AdminCtrl = {
     async saveCar(e) {
         e.preventDefault();
         setBtn('save-car-btn', `<span class="spinner"></span> Saving...`, true);
-        const editId = document.getElementById('c-id').value;
+        const editId   = document.getElementById('c-id').value;
         const featsRaw = document.getElementById('c-feats').value;
-        const features = featsRaw ? featsRaw.split(',').map(f=>f.trim()).filter(Boolean) : null;
+        const features = featsRaw ? featsRaw.split(',').map(f => f.trim()).filter(Boolean) : null;
+
+        // ── Upload photo if a new file was chosen ──
+        const fileInput = document.getElementById('c-img-file');
+        if (fileInput && fileInput.files[0]) {
+            const file = fileInput.files[0];
+            const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
+            const path = `cars/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+            setBtn('save-car-btn', `<span class="spinner"></span> Uploading photo...`, true);
+            const { error: upErr } = await sb.storage
+                .from('car-images')
+                .upload(path, file, { upsert: true, contentType: file.type });
+            if (upErr) {
+                toast('Photo upload failed: ' + upErr.message, 'error');
+                setBtn('save-car-btn', 'Save Car', false);
+                return;
+            }
+            const { data: urlData } = sb.storage.from('car-images').getPublicUrl(path);
+            document.getElementById('c-img').value = urlData.publicUrl;
+        }
+
         const carData = {
-            name: document.getElementById('c-name').value.trim(),
-            category: document.getElementById('c-cat').value,
+            name:          document.getElementById('c-name').value.trim(),
+            category:      document.getElementById('c-cat').value,
             price_per_day: parseInt(document.getElementById('c-price').value),
-            seats: parseInt(document.getElementById('c-seats').value) || null,
-            image_url: document.getElementById('c-img').value.trim() || null,
-            description: document.getElementById('c-desc').value.trim() || null,
+            seats:         parseInt(document.getElementById('c-seats').value) || null,
+            image_url:     document.getElementById('c-img').value.trim() || null,
+            description:   document.getElementById('c-desc').value.trim() || null,
             features,
-            is_approved: document.getElementById('c-live').checked,
+            is_approved:   document.getElementById('c-live').checked,
         };
         try {
             if (editId) {
