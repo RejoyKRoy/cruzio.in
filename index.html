@@ -19,11 +19,14 @@
       price_per_day integer not null,
       seats integer,
       image_url text,
+      images text[],
       description text,
       features text[],
       is_approved boolean default false,
       created_at timestamptz default now()
     );
+    -- If table already exists, add the images column:
+    -- alter table cars add column if not exists images text[];
 
     -- 2. Bookings table
     create table if not exists bookings (
@@ -225,6 +228,37 @@
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         .divider { border: none; border-top: 1px solid var(--border); }
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* ── Carousel ── */
+        .carousel-wrap { position:relative; overflow:hidden; background:var(--surface); }
+        .carousel-track { display:flex; transition:transform 0.4s cubic-bezier(.4,0,.2,1); will-change:transform; }
+        .carousel-track img { width:100%; height:210px; object-fit:cover; flex-shrink:0; display:block; }
+        .carousel-btn { position:absolute; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; background:rgba(0,0,0,.6); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:5; color:#fff; transition:background .2s; }
+        .carousel-btn:hover { background:rgba(0,0,0,.85); }
+        .carousel-btn.prev { left:8px; }
+        .carousel-btn.next { right:8px; }
+        .carousel-dots { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); display:flex; gap:5px; z-index:5; }
+        .carousel-dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.45); border:none; cursor:pointer; padding:0; transition:all .2s; }
+        .carousel-dot.active { background:#fff; width:18px; border-radius:3px; }
+
+        /* ── Feature checkboxes ── */
+        .feat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; }
+        .feat-cb { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:8px; cursor:pointer; font-size:13px; transition:all .18s; user-select:none; }
+        .feat-cb:hover { border-color:var(--accent); color:var(--accent); }
+        .feat-cb.checked { background:rgba(245,158,11,.1); border-color:var(--accent); color:var(--accent); }
+        .feat-cb input { display:none; }
+        .feat-cb-icon { width:16px; height:16px; border:1.5px solid var(--border); border-radius:4px; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .18s; }
+        .feat-cb.checked .feat-cb-icon { background:var(--accent); border-color:var(--accent); }
+
+        /* ── Multi-photo upload ── */
+        .photo-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+        .photo-thumb { position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; background:var(--surface); border:1px solid var(--border); }
+        .photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        .photo-thumb .rm-btn { position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%; background:rgba(239,68,68,.85); border:none; cursor:pointer; color:#fff; font-size:13px; display:flex; align-items:center; justify-content:center; transition:background .2s; }
+        .photo-thumb .rm-btn:hover { background:var(--red); }
+        .photo-thumb .cover-badge { position:absolute; bottom:4px; left:4px; font-size:9px; font-weight:700; background:var(--accent); color:#000; padding:2px 6px; border-radius:3px; letter-spacing:.04em; }
+        .photo-add-btn { aspect-ratio:4/3; border-radius:8px; border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s; color:var(--muted); font-size:12px; gap:6px; background:none; }
+        .photo-add-btn:hover { border-color:var(--accent); color:var(--accent); }
     </style>
 </head>
 <body>
@@ -306,7 +340,13 @@
         <!-- ── Step 1: Dates ── -->
         <div id="bk-s1" class="p-5 space-y-5">
             <div class="flex gap-4 p-4 rounded-xl" style="background:var(--surface);border:1px solid var(--border)">
-                <img id="bk-img" src="" alt="" class="w-24 h-18 rounded-xl object-cover flex-shrink-0" style="height:72px">
+                <div style="width:96px;height:72px;border-radius:10px;overflow:hidden;flex-shrink:0;background:var(--border)">
+                    <div class="carousel-wrap" style="height:72px">
+                        <div class="carousel-track" id="bk-carousel-track">
+                            <img id="bk-img" src="" alt="" style="width:96px;height:72px;object-fit:cover;flex-shrink:0">
+                        </div>
+                    </div>
+                </div>
                 <div>
                     <div class="font-display font-bold text-base" id="bk-name">Car</div>
                     <div class="text-sm mt-0.5" style="color:var(--muted)" id="bk-cat">-</div>
@@ -430,7 +470,7 @@
 <!--  MODAL: ADD / EDIT CAR                         -->
 <!-- ══════════════════════════════════════════════ -->
 <div id="car-modal" class="modal-bg" style="display:none">
-    <div class="modal-box" style="max-width:520px">
+    <div class="modal-box" style="max-width:560px">
         <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
             <h2 class="font-display text-xl font-bold" id="car-modal-title">Add Car</h2>
             <button onclick="Modals.close('car-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
@@ -461,40 +501,35 @@
                     <input type="number" id="c-seats" class="inp" placeholder="5" min="2" max="20">
                 </div>
             </div>
+
+            <!-- ── Multi-photo upload ── -->
             <div>
-                <label class="lbl">CAR PHOTO</label>
-                <div id="img-upload-area"
-                     style="border:2px dashed var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:border-color .2s;position:relative"
-                     onmouseover="this.style.borderColor='var(--accent)'"
-                     onmouseout="this.style.borderColor='var(--border)'"
-                     onclick="document.getElementById('c-img-file').click()">
-                    <!-- Placeholder shown when no image -->
-                    <div id="img-preview-wrap" style="padding:28px;text-align:center">
-                        <div style="font-size:32px;margin-bottom:8px">🖼️</div>
-                        <div style="font-size:13px;color:var(--muted);font-weight:500">Click to upload a photo</div>
-                        <div style="font-size:11px;color:var(--muted);margin-top:4px">JPG, PNG, WEBP · Max 5MB</div>
-                    </div>
-                    <!-- Preview image shown after selection -->
-                    <img id="c-img-preview" src="" alt="Preview"
-                         style="display:none;width:100%;height:180px;object-fit:cover;pointer-events:none">
-                    <!-- Change overlay shown on hover when image exists -->
-                    <div id="img-change-overlay"
-                         style="display:none;position:absolute;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff">
-                        Click to change photo
-                    </div>
-                    <input type="file" id="c-img-file" accept="image/*" style="display:none" onchange="previewCarImage(this)">
+                <label class="lbl">CAR PHOTOS <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(first photo = cover · max 8)</span></label>
+                <div class="photo-grid" id="photo-grid-ui">
+                    <!-- thumbs injected by JS -->
+                    <button type="button" class="photo-add-btn" id="photo-add-btn" onclick="document.getElementById('c-img-files').click()">
+                        <span style="font-size:22px">＋</span>
+                        <span>Add Photo</span>
+                    </button>
                 </div>
-                <!-- Hidden field stores the final URL (existing or newly uploaded) -->
+                <input type="file" id="c-img-files" accept="image/*" multiple style="display:none" onchange="Photos.add(this)">
+                <!-- hidden: stores comma-sep existing URLs -->
                 <input type="hidden" id="c-img">
             </div>
+
             <div>
                 <label class="lbl">DESCRIPTION</label>
                 <textarea id="c-desc" class="inp" placeholder="Comfortable, spacious vehicle with premium interiors..."></textarea>
             </div>
+
+            <!-- ── Feature checkboxes ── -->
             <div>
-                <label class="lbl">FEATURES (comma separated)</label>
-                <input type="text" id="c-feats" class="inp" placeholder="AC, GPS, Bluetooth, Rear Camera, Sunroof">
+                <label class="lbl">FEATURES</label>
+                <div class="feat-grid" id="feat-grid">
+                    <!-- injected by JS -->
+                </div>
             </div>
+
             <div class="flex items-center gap-3">
                 <div class="toggle" id="c-live-toggle" onclick="toggleCarLive()"></div>
                 <input type="checkbox" id="c-live" class="hidden">
@@ -1320,23 +1355,43 @@ const Views = {
         </div>
     `,
 
-    carCard: (car) => `
+    carCard: (car) => {
+        const imgs = (Array.isArray(car.images) && car.images.length)
+            ? car.images
+            : (car.image_url ? [car.image_url] : []);
+        const cid = 'c' + car.id.replace(/-/g,'').slice(0,8);
+        const multi = imgs.length > 1;
+        const fallback = `https://placehold.co/400x210/111113/f59e0b?text=${encodeURIComponent(car.name)}`;
+        return `
         <div class="car-card" onclick="Booking.open('${esc(car.id)}')">
-            <div style="position:relative">
-                <img src="${esc(car.image_url || '')}" alt="${esc(car.name)}"
-                     style="width:100%;height:210px;object-fit:cover;display:block"
-                     onerror="this.src='https://placehold.co/400x210/111113/f59e0b?text=${encodeURIComponent(car.name)}'">
-                <div style="position:absolute;top:12px;left:12px;display:flex;gap:6px">
+            <div class="carousel-wrap">
+                <div class="carousel-track" id="ct-${cid}">
+                    ${imgs.length
+                        ? imgs.map(u => `<img src="${esc(u)}" alt="${esc(car.name)}" onerror="this.src='${fallback}'">`).join('')
+                        : `<img src="${fallback}" alt="${esc(car.name)}">`}
+                </div>
+                <!-- Category + seats badges -->
+                <div style="position:absolute;top:12px;left:12px;display:flex;gap:6px;z-index:4">
                     <span style="background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px">${esc(car.category)}</span>
                 </div>
-                ${car.seats ? `<span style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px">${esc(String(car.seats))} seats</span>` : ''}
+                ${car.seats ? `<span style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);color:#fff;font-size:11px;padding:4px 10px;border-radius:20px;z-index:4">${esc(String(car.seats))} seats</span>` : ''}
+                ${multi ? `
+                <button class="carousel-btn prev" onclick="Carousel.prev('${cid}',${imgs.length},event)">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 18l-6-6 6-6"/></svg>
+                </button>
+                <button class="carousel-btn next" onclick="Carousel.next('${cid}',${imgs.length},event)">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 18l6-6-6-6"/></svg>
+                </button>
+                <div class="carousel-dots" id="cd-${cid}">
+                    ${imgs.map((_,i) => `<button class="carousel-dot ${i===0?'active':''}" onclick="Carousel.go('${cid}',${imgs.length},${i},event)"></button>`).join('')}
+                </div>` : ''}
             </div>
             <div style="padding:18px">
                 <h3 class="font-display font-bold text-lg mb-1">${esc(car.name)}</h3>
                 ${car.description ? `<p class="line-clamp-2 text-sm mb-3" style="color:var(--muted)">${esc(car.description)}</p>` : ''}
                 ${car.features && car.features.length ? `
                     <div class="flex flex-wrap gap-1.5 mb-3">
-                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,3).map(f => `
+                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,4).map(f => `
                             <span style="font-size:11px;padding:3px 9px;background:var(--surface);border:1px solid var(--border);border-radius:20px;color:var(--muted)">${esc(f.trim())}</span>
                         `).join('')}
                     </div>
@@ -1349,8 +1404,8 @@ const Views = {
                     <button class="btn btn-primary btn-sm" style="pointer-events:none">Book Now →</button>
                 </div>
             </div>
-        </div>
-    `,
+        </div>`;
+    },
 
     admin: () => `
         <div style="display:flex;min-height:100vh;background:var(--bg)">
@@ -1453,7 +1508,6 @@ const Booking = {
         // Reset UI
         Booking.setStep(1);
         document.getElementById('bk-subtitle').textContent = car.name;
-        document.getElementById('bk-img').src = car.image_url || '';
         document.getElementById('bk-name').textContent = car.name;
         document.getElementById('bk-cat').textContent = car.category || '';
         document.getElementById('bk-ppd').textContent = fmtCur(car.price_per_day) + '/day';
@@ -1461,6 +1515,20 @@ const Booking = {
         document.getElementById('fp-start').value = '';
         document.getElementById('fp-end').value = '';
         ['bk-cname','bk-cphone','bk-cemail','bk-cmsg'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+        // Populate booking modal carousel
+        const imgs = (Array.isArray(car.images) && car.images.length) ? car.images : (car.image_url ? [car.image_url] : []);
+        const fallback = `https://placehold.co/96x72/111113/f59e0b?text=${encodeURIComponent(car.name)}`;
+        const track = document.getElementById('bk-carousel-track');
+        if (track) {
+            track.style.transform = 'translateX(0)';
+            track.innerHTML = imgs.length
+                ? imgs.map(u => `<img src="${esc(u)}" alt="${esc(car.name)}" style="width:96px;height:72px;object-fit:cover;flex-shrink:0" onerror="this.src='${fallback}'">`).join('')
+                : `<img src="${fallback}" alt="${esc(car.name)}" style="width:96px;height:72px;object-fit:cover;flex-shrink:0">`;
+        }
+        // Also keep bk-img in sync (first image)
+        const bkImg = document.getElementById('bk-img');
+        if (bkImg) bkImg.src = imgs[0] || fallback;
 
         Modals.open('booking-modal');
 
@@ -1636,47 +1704,137 @@ async function submitPartnerInquiry(e) {
 }
 
 // ────────────────────────────────────────────────
-//  CAR IMAGE PREVIEW & UPLOAD HELPERS
+//  CAROUSEL
 // ────────────────────────────────────────────────
-function previewCarImage(input) {
-    const file = input.files[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-        toast('Image must be under 5MB', 'error');
+const Carousel = {
+    state: {}, // cid -> current index
+    _set(cid, total, idx) {
+        if (!this.state[cid]) this.state[cid] = 0;
+        this.state[cid] = (idx + total) % total;
+        const track = document.getElementById('ct-' + cid);
+        if (track) track.style.transform = `translateX(-${this.state[cid] * 100}%)`;
+        const dots = document.querySelectorAll(`#cd-${cid} .carousel-dot`);
+        dots.forEach((d, i) => d.classList.toggle('active', i === this.state[cid]));
+    },
+    next(cid, total, e) { e.stopPropagation(); this._set(cid, total, (this.state[cid] || 0) + 1); },
+    prev(cid, total, e) { e.stopPropagation(); this._set(cid, total, (this.state[cid] || 0) - 1); },
+    go(cid, total, idx, e)  { e.stopPropagation(); this._set(cid, total, idx); },
+};
+
+// ────────────────────────────────────────────────
+//  FEATURES CHECKBOX SYSTEM
+// ────────────────────────────────────────────────
+const FEATURE_LIST = [
+    ['❄️','AC'],['🎵','Bluetooth'],['🛰️','GPS Navigation'],['📷','Rear Camera'],
+    ['🌞','Sunroof'],['🛡️','Airbags'],['🔒','ABS / EBD'],['⚡','USB Charging'],
+    ['🍎','Apple CarPlay'],['🤖','Android Auto'],['🚀','Cruise Control'],
+    ['🔑','Keyless Entry'],['💡','LED Headlights'],['🅿️','Parking Sensors'],
+    ['🔧','Alloy Wheels'],['🪑','Leather Seats'],
+];
+
+const Features = {
+    init(selected = []) {
+        const grid = document.getElementById('feat-grid');
+        if (!grid) return;
+        grid.innerHTML = FEATURE_LIST.map(([icon, name]) => {
+            const isChecked = selected.includes(name);
+            return `<label class="feat-cb ${isChecked ? 'checked' : ''}" onclick="Features.toggle(this)">
+                <input type="checkbox" value="${name}" ${isChecked ? 'checked' : ''}>
+                <span class="feat-cb-icon">${isChecked ? '<svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>' : ''}</span>
+                <span>${icon} ${name}</span>
+            </label>`;
+        }).join('');
+    },
+    toggle(el) {
+        const cb = el.querySelector('input');
+        cb.checked = !cb.checked;
+        el.classList.toggle('checked', cb.checked);
+        const icon = el.querySelector('.feat-cb-icon');
+        icon.innerHTML = cb.checked
+            ? '<svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
+            : '';
+    },
+    get() {
+        return [...document.querySelectorAll('#feat-grid input:checked')].map(i => i.value);
+    },
+};
+
+// ────────────────────────────────────────────────
+//  MULTI-PHOTO MANAGER (admin car form)
+// ────────────────────────────────────────────────
+const Photos = {
+    // Each entry: { src: string (data URL or existing URL), file: File|null, existing: bool }
+    list: [],
+
+    reset() {
+        this.list = [];
+        this.render();
+    },
+
+    load(urls) {
+        // Load existing saved URLs
+        this.list = (urls || []).filter(Boolean).map(u => ({ src: u, file: null, existing: true }));
+        this.render();
+    },
+
+    add(input) {
+        const files = [...input.files];
+        const remaining = 8 - this.list.length;
+        if (remaining <= 0) { toast('Maximum 8 photos allowed', 'error'); input.value = ''; return; }
+        const toAdd = files.slice(0, remaining);
+        if (files.length > remaining) toast(`Only ${remaining} more photo(s) can be added`, 'info');
+        let loaded = 0;
+        toAdd.forEach(file => {
+            if (file.size > 5 * 1024 * 1024) { toast(`${file.name} exceeds 5MB`, 'error'); return; }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.list.push({ src: e.target.result, file, existing: false });
+                loaded++;
+                if (loaded === toAdd.length) this.render();
+            };
+            reader.readAsDataURL(file);
+        });
         input.value = '';
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const preview = document.getElementById('c-img-preview');
-        const wrap    = document.getElementById('img-preview-wrap');
-        const overlay = document.getElementById('img-change-overlay');
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-        wrap.style.display = 'none';
-        overlay.style.display = 'flex';
-    };
-    reader.readAsDataURL(file);
-}
+    },
 
-function resetCarImageUI() {
-    document.getElementById('c-img-file').value = '';
-    document.getElementById('c-img-preview').src = '';
-    document.getElementById('c-img-preview').style.display = 'none';
-    document.getElementById('img-preview-wrap').style.display = 'block';
-    document.getElementById('img-change-overlay').style.display = 'none';
-}
+    remove(i) {
+        this.list.splice(i, 1);
+        this.render();
+    },
 
-function showExistingCarImage(url) {
-    if (!url) return resetCarImageUI();
-    const preview = document.getElementById('c-img-preview');
-    const wrap    = document.getElementById('img-preview-wrap');
-    const overlay = document.getElementById('img-change-overlay');
-    preview.src = url;
-    preview.style.display = 'block';
-    wrap.style.display = 'none';
-    overlay.style.display = 'flex';
-}
+    render() {
+        const grid = document.getElementById('photo-grid-ui');
+        if (!grid) return;
+        const thumbs = this.list.map((p, i) => `
+            <div class="photo-thumb">
+                <img src="${p.src}" alt="Photo ${i+1}">
+                ${i === 0 ? '<span class="cover-badge">COVER</span>' : ''}
+                <button type="button" class="rm-btn" onclick="Photos.remove(${i})">×</button>
+            </div>
+        `).join('');
+        const addBtn = this.list.length < 8
+            ? `<button type="button" class="photo-add-btn" onclick="document.getElementById('c-img-files').click()">
+                <span style="font-size:22px">＋</span><span>Add Photo</span>
+               </button>`
+            : '';
+        grid.innerHTML = thumbs + addBtn;
+    },
+
+    async uploadAll() {
+        // Upload only new (non-existing) photos, return full list of URLs
+        const results = [];
+        for (const p of this.list) {
+            if (p.existing) { results.push(p.src); continue; }
+            const ext  = (p.file.name.split('.').pop() || 'jpg').toLowerCase();
+            const path = `cars/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+            const { error } = await sb.storage.from('car-images').upload(path, p.file, { upsert: true, contentType: p.file.type });
+            if (error) throw new Error('Upload failed for ' + p.file.name + ': ' + error.message);
+            const { data: ud } = sb.storage.from('car-images').getPublicUrl(path);
+            results.push(ud.publicUrl);
+        }
+        return results;
+    },
+};
 
 // ────────────────────────────────────────────────
 //  CAR LIVE TOGGLE (in add/edit form)
@@ -1812,11 +1970,18 @@ const AdminCtrl = {
                 <button onclick="AdminCtrl.openCarForm()" class="btn btn-primary">+ Add Car</button>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                ${(data||[]).map(car => `
+                ${(data||[]).map(car => {
+                    const imgs = (Array.isArray(car.images) && car.images.length) ? car.images : (car.image_url ? [car.image_url] : []);
+                    const coverImg = imgs[0] || '';
+                    const fallback = `https://placehold.co/400x150/111113/f59e0b?text=${encodeURIComponent(car.name)}`;
+                    return `
                     <div class="card" style="overflow:hidden">
-                        <img src="${esc(car.image_url||'')}" alt="${esc(car.name)}"
-                             style="width:100%;height:150px;object-fit:cover;display:block"
-                             onerror="this.src='https://placehold.co/400x150/111113/f59e0b?text=${encodeURIComponent(car.name)}'">
+                        <div style="position:relative">
+                            <img src="${esc(coverImg)}" alt="${esc(car.name)}"
+                                 style="width:100%;height:150px;object-fit:cover;display:block"
+                                 onerror="this.src='${fallback}'">
+                            ${imgs.length > 1 ? `<span style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px">📷 ${imgs.length}</span>` : ''}
+                        </div>
                         <div style="padding:14px">
                             <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
                                 <div>
@@ -1834,8 +1999,8 @@ const AdminCtrl = {
                                 </button>
                             </div>
                         </div>
-                    </div>
-                `).join('')}
+                    </div>`;
+                }).join('')}
                 ${!data || !data.length ? `
                     <div class="col-span-full" style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
                         <div style="font-size:40px;margin-bottom:12px">🚗</div>
@@ -1854,11 +2019,11 @@ const AdminCtrl = {
         document.getElementById('c-seats').value = '';
         document.getElementById('c-img').value = '';
         document.getElementById('c-desc').value = '';
-        document.getElementById('c-feats').value = '';
         document.getElementById('c-live').checked = false;
         document.getElementById('c-live-toggle').classList.remove('on');
         document.getElementById('car-modal-title').textContent = id ? 'Edit Car' : 'Add Car';
-        resetCarImageUI();
+        Photos.reset();
+        Features.init([]);
 
         if (id) {
             const { data } = await sb.from('cars').select('*').eq('id', id).single();
@@ -1868,12 +2033,15 @@ const AdminCtrl = {
                 document.getElementById('c-cat').value = data.category || '';
                 document.getElementById('c-price').value = data.price_per_day || '';
                 document.getElementById('c-seats').value = data.seats || '';
-                document.getElementById('c-img').value = data.image_url || '';
                 document.getElementById('c-desc').value = data.description || '';
-                document.getElementById('c-feats').value = Array.isArray(data.features) ? data.features.join(', ') : (data.features || '');
                 document.getElementById('c-live').checked = !!data.is_approved;
                 document.getElementById('c-live-toggle').classList.toggle('on', !!data.is_approved);
-                showExistingCarImage(data.image_url || '');
+                // Load existing images (images array takes priority, fallback to image_url)
+                const existingImgs = Array.isArray(data.images) && data.images.length
+                    ? data.images
+                    : (data.image_url ? [data.image_url] : []);
+                Photos.load(existingImgs);
+                Features.init(Array.isArray(data.features) ? data.features : []);
             }
         }
         Modals.open('car-modal');
@@ -1883,26 +2051,19 @@ const AdminCtrl = {
         e.preventDefault();
         setBtn('save-car-btn', `<span class="spinner"></span> Saving...`, true);
         const editId   = document.getElementById('c-id').value;
-        const featsRaw = document.getElementById('c-feats').value;
-        const features = featsRaw ? featsRaw.split(',').map(f => f.trim()).filter(Boolean) : null;
+        const features = Features.get();
 
-        // ── Upload photo if a new file was chosen ──
-        const fileInput = document.getElementById('c-img-file');
-        if (fileInput && fileInput.files[0]) {
-            const file = fileInput.files[0];
-            const ext  = file.name.split('.').pop().toLowerCase() || 'jpg';
-            const path = `cars/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-            setBtn('save-car-btn', `<span class="spinner"></span> Uploading photo...`, true);
-            const { error: upErr } = await sb.storage
-                .from('car-images')
-                .upload(path, file, { upsert: true, contentType: file.type });
-            if (upErr) {
-                toast('Photo upload failed: ' + upErr.message, 'error');
-                setBtn('save-car-btn', 'Save Car', false);
-                return;
+        // Upload any new photos
+        let imageUrls = [];
+        try {
+            if (Photos.list.length > 0) {
+                setBtn('save-car-btn', `<span class="spinner"></span> Uploading photos...`, true);
+                imageUrls = await Photos.uploadAll();
             }
-            const { data: urlData } = sb.storage.from('car-images').getPublicUrl(path);
-            document.getElementById('c-img').value = urlData.publicUrl;
+        } catch(upErr) {
+            toast(upErr.message, 'error');
+            setBtn('save-car-btn', 'Save Car', false);
+            return;
         }
 
         const carData = {
@@ -1910,9 +2071,10 @@ const AdminCtrl = {
             category:      document.getElementById('c-cat').value,
             price_per_day: parseInt(document.getElementById('c-price').value),
             seats:         parseInt(document.getElementById('c-seats').value) || null,
-            image_url:     document.getElementById('c-img').value.trim() || null,
+            image_url:     imageUrls[0] || null,   // keep for backward compat
+            images:        imageUrls.length ? imageUrls : null,
             description:   document.getElementById('c-desc').value.trim() || null,
-            features,
+            features:      features.length ? features : null,
             is_approved:   document.getElementById('c-live').checked,
         };
         try {
