@@ -598,10 +598,10 @@ const CFG = {
     SB_URL:  'https://flxjlkxfydsrruszrldy.supabase.co',
     SB_KEY:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
     FORMSPREE: 'xvzbylez',
-    BREVO_KEY:    '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',
+    BREVO_KEY: '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',
     SENDER_EMAIL: 'bookings@cruzio.in',
-    SENDER_NAME:  'Cruzio Car Rental',
-    ADMIN_EMAIL:  'admin@cruzio.in', // ← change to your real inbox
+    SENDER_NAME: 'Cruzio Car Rental',
+    ADMIN_EMAIL: 'admin@cruzio.in', // ← your email to receive booking alerts
     PHONE:    '+91 96053 70108',
     WA:       'https://wa.me/919605370108?text=',
 };
@@ -625,8 +625,9 @@ const S = {
 const Email = {
 
     async send({ to, toName, subject, html }) {
+        if (!CFG.BREVO_KEY) return;
         try {
-            const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+            await fetch('https://api.brevo.com/v3/smtp/email', {
                 method: 'POST',
                 headers: {
                     'api-key': CFG.BREVO_KEY,
@@ -640,8 +641,7 @@ const Email = {
                     htmlContent: html,
                 }),
             });
-            if (!res.ok) console.warn('Brevo error:', res.status, await res.text().catch(()=>''));
-        } catch(e) { console.warn('Email send failed:', e.message); }
+        } catch(e) { console.warn('Brevo send failed:', e); }
     },
 
     // ── Email templates ──────────────────────────
