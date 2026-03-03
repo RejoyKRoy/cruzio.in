@@ -595,15 +595,15 @@
 //  CONFIG  ← update these
 // ────────────────────────────────────────────────
 const CFG = {
-    SB_URL:  'https://flxjlkxfydsrruszrldy.supabase.co',
-    SB_KEY:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
-    FORMSPREE: 'xvzbylez',
-    BREVO_KEY: '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',
+    SB_URL:       'https://flxjlkxfydsrruszrldy.supabase.co',
+    SB_KEY:       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
+    FORMSPREE:    'xvzbylez',
+    BREVO_KEY:    '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',
     SENDER_EMAIL: 'bookings@cruzio.in',
-    SENDER_NAME: 'Cruzio Car Rental',
-    ADMIN_EMAIL: 'admin@cruzio.in', // ← your email to receive booking alerts
-    PHONE:    '+91 96053 70108',
-    WA:       'https://wa.me/919605370108?text=',
+    SENDER_NAME:  'Cruzio Car Rental',
+    ADMIN_EMAILS: ['admin@cruzio.in', 'sid123jayan@gmail.com'],
+    PHONE:        '+91 96053 70108',
+    WA:           'https://wa.me/919605370108?text=',
 };
 
 const sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_KEY);
@@ -622,12 +622,19 @@ const S = {
 // ────────────────────────────────────────────────
 //  EMAIL — Brevo Transactional API
 // ────────────────────────────────────────────────
+// ────────────────────────────────────────────────
+//  EMAIL — Brevo Transactional API
+// ────────────────────────────────────────────────
 const Email = {
 
+    // Core send — `to` can be a single email string or array of email strings
     async send({ to, toName, subject, html }) {
         if (!CFG.BREVO_KEY) return;
+        const recipients = Array.isArray(to)
+            ? to.map(e => ({ email: e }))
+            : [{ email: to, name: toName || to }];
         try {
-            await fetch('https://api.brevo.com/v3/smtp/email', {
+            const res = await fetch('https://api.brevo.com/v3/smtp/email', {
                 method: 'POST',
                 headers: {
                     'api-key': CFG.BREVO_KEY,
@@ -636,104 +643,104 @@ const Email = {
                 },
                 body: JSON.stringify({
                     sender: { name: CFG.SENDER_NAME, email: CFG.SENDER_EMAIL },
-                    to: [{ email: to, name: toName || to }],
+                    to: recipients,
                     subject,
                     htmlContent: html,
                 }),
             });
-        } catch(e) { console.warn('Brevo send failed:', e); }
+            if (!res.ok) console.warn('Brevo error:', res.status, await res.text().catch(() => ''));
+        } catch(e) { console.warn('Brevo send failed:', e.message); }
     },
 
-    // ── Email templates ──────────────────────────
-
-    // To customer: booking received
+    // ── Customer: booking request received ───────
     bookingReceived(b, total) {
         return Email.send({
-            to: b.customer_email,
-            toName: b.customer_name,
+            to: b.customer_email, toName: b.customer_name,
             subject: `✅ Booking Request Received — ${b.car_name} | Cruzio`,
             html: Email._wrap(`
                 <h2 style="margin:0 0 6px;font-size:22px;color:#f5f5f0">Hi ${b.customer_name} 👋</h2>
-                <p style="color:#888;margin:0 0 24px;line-height:1.7">We've received your rental request for <strong style="color:#f59e0b">${b.car_name}</strong> and our team will call you within <strong style="color:#f59e0b">30 minutes</strong> to confirm the booking.</p>
+                <p style="color:#888;margin:0 0 24px;line-height:1.7">We've received your rental request for <strong style="color:#f59e0b">${b.car_name}</strong>. Our team will call you within <strong style="color:#f59e0b">30 minutes</strong> to confirm.</p>
                 ${Email._table([
                     ['🚗 Car', b.car_name],
-                    ['📅 Pickup Date', fmtDate(b.start_date)],
-                    ['🏁 Return Date', fmtDate(b.end_date)],
+                    ['📅 Pickup', fmtDate(b.start_date)],
+                    ['🏁 Return', fmtDate(b.end_date)],
                     ['⏱ Duration', `${b.total_days} day${b.total_days > 1 ? 's' : ''}`],
-                    ['💰 Estimated Total', fmtCur(total)],
+                    ['💰 Est. Total', fmtCur(total)],
+                    ['📋 Status', '<span style="color:#f59e0b;font-weight:700">PENDING CONFIRMATION</span>'],
                 ])}
                 ${b.message ? `<div style="margin-top:20px;padding:14px 16px;background:#1a1a1c;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0"><p style="margin:0;font-size:13px;color:#aaa">📝 Your note: "<em>${b.message}</em>"</p></div>` : ''}
-                <div style="margin-top:28px;padding:18px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:12px">
-                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">📞 We'll call you at <strong style="color:#f59e0b">${b.customer_phone}</strong> shortly. If you need to reach us in the meantime, WhatsApp us at <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">+91 96053 70108</a>.</p>
+                <div style="margin-top:24px;padding:18px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:12px">
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">📞 We'll call you at <strong style="color:#f59e0b">${b.customer_phone}</strong> shortly. You can also reach us on <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">WhatsApp +91 96053 70108</a>.</p>
+                </div>
+                <div style="margin-top:20px;text-align:center">
+                    <a href="${CFG.WA}${encodeURIComponent('Hi Cruzio, I just submitted a booking request. Please confirm.')}" style="display:inline-block;background:#25D366;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Chat on WhatsApp →</a>
                 </div>
             `)
         });
     },
 
-    // To customer: booking confirmed
+    // ── Customer: booking confirmed ───────────────
     bookingApproved(b) {
         return Email.send({
-            to: b.customer_email,
-            toName: b.customer_name,
+            to: b.customer_email, toName: b.customer_name,
             subject: `🎉 Booking Confirmed — ${b.car_name} | Cruzio`,
             html: Email._wrap(`
-                <div style="text-align:center;margin-bottom:32px">
-                    <div style="width:68px;height:68px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:16px">✅</div>
+                <div style="text-align:center;margin-bottom:28px">
+                    <div style="width:68px;height:68px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:30px;margin-bottom:14px">✅</div>
                     <h2 style="margin:0 0 8px;font-size:26px;color:#f5f5f0">Your Booking is Confirmed!</h2>
                     <p style="color:#888;margin:0">Get ready for a premium drive with Cruzio.</p>
                 </div>
                 ${Email._table([
                     ['🚗 Car', b.car_name],
-                    ['📅 Pickup Date', fmtDate(b.start_date)],
-                    ['🏁 Return Date', fmtDate(b.end_date)],
+                    ['📅 Pickup', fmtDate(b.start_date)],
+                    ['🏁 Return', fmtDate(b.end_date)],
                     ['⏱ Duration', `${b.total_days} day${b.total_days > 1 ? 's' : ''}`],
-                    ['💰 Estimated Total', fmtCur(b.estimated_price)],
-                    ['📋 Status', '<span style="color:#22c55e;font-weight:700">CONFIRMED</span>'],
+                    ['💰 Total', fmtCur(b.estimated_price)],
+                    ['📋 Status', '<span style="color:#22c55e;font-weight:700">✅ CONFIRMED</span>'],
                 ])}
                 <div style="margin-top:24px;padding:18px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:12px">
-                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">Our team will contact you shortly with final pickup location and payment details. For any questions, WhatsApp us at <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">+91 96053 70108</a>.</p>
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">Our team will contact you with pickup location and payment details. Questions? WhatsApp <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">+91 96053 70108</a>.</p>
                 </div>
                 <div style="margin-top:20px;text-align:center">
-                    <a href="https://wa.me/919605370108" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0a0a0b;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">View Booking Details on WhatsApp</a>
+                    <a href="https://wa.me/919605370108" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0a0a0b;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">View Details on WhatsApp</a>
                 </div>
             `)
         });
     },
 
-    // To customer: booking rejected
+    // ── Customer: booking rejected ────────────────
     bookingRejected(b) {
         return Email.send({
-            to: b.customer_email,
-            toName: b.customer_name,
+            to: b.customer_email, toName: b.customer_name,
             subject: `Regarding Your Booking Request — ${b.car_name} | Cruzio`,
             html: Email._wrap(`
                 <h2 style="margin:0 0 8px;font-size:22px;color:#f5f5f0">Hi ${b.customer_name},</h2>
-                <p style="color:#888;margin:0 0 20px;line-height:1.7">We're sorry — we're unable to confirm your booking request for <strong style="color:#f5f5f0">${b.car_name}</strong> for the requested dates. This may be due to availability or a scheduling conflict.</p>
+                <p style="color:#888;margin:0 0 20px;line-height:1.7">We're sorry — we're unable to confirm your booking for <strong style="color:#f5f5f0">${b.car_name}</strong> for the requested dates due to availability or a scheduling conflict.</p>
                 ${Email._table([
-                    ['🚗 Car Requested', b.car_name],
-                    ['📅 Requested Pickup', fmtDate(b.start_date)],
-                    ['🏁 Requested Return', fmtDate(b.end_date)],
+                    ['🚗 Car', b.car_name],
+                    ['📅 Pickup Requested', fmtDate(b.start_date)],
+                    ['🏁 Return Requested', fmtDate(b.end_date)],
+                    ['📋 Status', '<span style="color:#ef4444;font-weight:700">❌ UNAVAILABLE</span>'],
                 ])}
                 <div style="margin-top:24px;padding:18px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:12px">
-                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">We'd love to help you find an alternative. Browse our other available cars or chat with us directly — we'll do our best to accommodate you.</p>
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">We'd love to help you find an alternative — browse other cars or chat with us directly.</p>
                 </div>
                 <div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
                     <a href="https://cruzio.in/#cars" style="display:inline-block;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b;padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">Browse Other Cars</a>
-                    <a href="https://wa.me/919605370108" style="display:inline-block;background:#25D366;color:#fff;padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">WhatsApp Us to Reschedule</a>
+                    <a href="https://wa.me/919605370108" style="display:inline-block;background:#25D366;color:#fff;padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px">WhatsApp Us</a>
                 </div>
             `)
         });
     },
 
-    // To admin: new booking alert
+    // ── Admin: new booking request ─────────────────
     adminNewBooking(b, total) {
-        if (!CFG.ADMIN_EMAIL) return;
+        if (!CFG.ADMIN_EMAILS || !CFG.ADMIN_EMAILS.length) return;
         return Email.send({
-            to: CFG.ADMIN_EMAIL,
-            toName: 'Cruzio Admin',
-            subject: `🔔 New Booking Request — ${b.car_name} (${b.customer_name})`,
+            to: CFG.ADMIN_EMAILS, toName: 'Cruzio Admin',
+            subject: `🔔 New Booking — ${b.car_name} (${b.customer_name})`,
             html: Email._wrap(`
-                <div style="display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:.06em;margin-bottom:20px">NEW BOOKING REQUEST</div>
+                <div style="display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:.06em;margin-bottom:20px">🆕 NEW BOOKING REQUEST</div>
                 <h2 style="margin:0 0 20px;font-size:22px;color:#f5f5f0">Action Required</h2>
                 ${Email._table([
                     ['👤 Customer', b.customer_name],
@@ -755,8 +762,79 @@ const Email = {
         });
     },
 
-    // ── Shared HTML helpers ───────────────────────
+    // ── Admin: booking status changed ─────────────
+    adminBookingUpdated(b, newStatus) {
+        if (!CFG.ADMIN_EMAILS || !CFG.ADMIN_EMAILS.length) return;
+        const isApproved = newStatus === 'approved';
+        const isRejected = newStatus === 'rejected';
+        const statusLabel = isApproved ? '✅ APPROVED' : isRejected ? '❌ REJECTED' : '🔄 REVERTED TO PENDING';
+        const statusColor = isApproved ? '#22c55e' : isRejected ? '#ef4444' : '#f59e0b';
+        return Email.send({
+            to: CFG.ADMIN_EMAILS, toName: 'Cruzio Admin',
+            subject: `📝 Booking ${newStatus.toUpperCase()} — ${b.car_name} (${b.customer_name})`,
+            html: Email._wrap(`
+                <div style="display:inline-block;background:rgba(107,107,114,.15);border:1px solid rgba(107,107,114,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:20px">BOOKING STATUS UPDATE</div>
+                <h2 style="margin:0 0 6px;font-size:22px;color:#f5f5f0">Booking Status Changed</h2>
+                <p style="color:#888;margin:0 0 20px">A booking has been updated in the admin panel.</p>
+                ${Email._table([
+                    ['📋 New Status', `<span style="color:${statusColor};font-weight:700">${statusLabel}</span>`],
+                    ['👤 Customer', b.customer_name],
+                    ['📱 Phone', `<a href="tel:${b.customer_phone}" style="color:#f59e0b;text-decoration:none">${b.customer_phone}</a>`],
+                    ['🚗 Car', b.car_name],
+                    ['📅 Pickup', fmtDate(b.start_date)],
+                    ['🏁 Return', fmtDate(b.end_date)],
+                    ['💰 Total', fmtCur(b.estimated_price)],
+                ])}
+                <div style="margin-top:24px">
+                    <a href="https://cruzio.in/#admin" style="display:inline-block;background:linear-gradient(135deg,#f59e0b,#d97706);color:#0a0a0b;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Open Admin Panel →</a>
+                </div>
+            `)
+        });
+    },
 
+    // ── Admin: new partner inquiry ─────────────────
+    adminNewPartnerInquiry(p) {
+        if (!CFG.ADMIN_EMAILS || !CFG.ADMIN_EMAILS.length) return;
+        return Email.send({
+            to: CFG.ADMIN_EMAILS, toName: 'Cruzio Admin',
+            subject: `🚘 New Partner Inquiry — ${p.name}`,
+            html: Email._wrap(`
+                <div style="display:inline-block;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#60a5fa;letter-spacing:.06em;margin-bottom:20px">🚘 PARTNER INQUIRY</div>
+                <h2 style="margin:0 0 8px;font-size:22px;color:#f5f5f0">New Vehicle Listing Request</h2>
+                <p style="color:#888;margin:0 0 20px;line-height:1.7">Someone wants to list their vehicle with Cruzio.</p>
+                ${Email._table([
+                    ['👤 Name', p.name],
+                    ['📱 Phone', `<a href="tel:${p.phone}" style="color:#f59e0b;text-decoration:none">${p.phone}</a>`],
+                    ...(p.email ? [['✉ Email', p.email]] : []),
+                    ...(p.vehicle_details ? [['🚗 Vehicle', p.vehicle_details]] : []),
+                    ['🕐 Submitted', new Date(p.created_at || Date.now()).toLocaleString('en-IN')],
+                ])}
+                <div style="margin-top:24px;display:flex;gap:12px;flex-wrap:wrap">
+                    <a href="https://wa.me/91${p.phone.replace(/\D/g,'')}" style="display:inline-block;background:#25D366;color:#fff;padding:13px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">WhatsApp Partner</a>
+                    <a href="tel:${p.phone}" style="display:inline-block;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:#f59e0b;padding:13px 24px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">📞 Call Now</a>
+                </div>
+            `)
+        });
+    },
+
+    // ── Partner: inquiry acknowledgement ──────────
+    partnerInquiryReceived(p) {
+        if (!p.email) return; // skip if no email provided
+        return Email.send({
+            to: p.email, toName: p.name,
+            subject: `✅ We received your inquiry — Cruzio`,
+            html: Email._wrap(`
+                <h2 style="margin:0 0 6px;font-size:22px;color:#f5f5f0">Hi ${p.name} 👋</h2>
+                <p style="color:#888;margin:0 0 24px;line-height:1.7">Thanks for your interest in listing your vehicle with <strong style="color:#f59e0b">Cruzio</strong>! We've received your inquiry and our team will reach out to you within <strong style="color:#f59e0b">24 hours</strong>.</p>
+                ${p.vehicle_details ? Email._table([['🚗 Vehicle Details', p.vehicle_details]]) : ''}
+                <div style="margin-top:24px;padding:18px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:12px">
+                    <p style="margin:0;font-size:14px;color:#ccc;line-height:1.7">We'll call you at <strong style="color:#f59e0b">${p.phone}</strong>. For faster response, WhatsApp us at <a href="https://wa.me/919605370108" style="color:#f59e0b;text-decoration:none">+91 96053 70108</a>.</p>
+                </div>
+            `)
+        });
+    },
+
+    // ── Shared HTML helpers ───────────────────────
     _table(rows) {
         return `<table style="width:100%;border-collapse:collapse;margin:0 0 4px">
             ${rows.map(([k, v]) => `
@@ -773,16 +851,13 @@ const Email = {
 <html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:0;background:#080809;font-family:Arial,sans-serif;-webkit-font-smoothing:antialiased">
     <div style="max-width:580px;margin:0 auto;padding:32px 16px">
-        <!-- Logo header -->
         <div style="margin-bottom:28px;display:flex;align-items:center;gap:12px">
             <div style="font-size:24px;font-weight:800;letter-spacing:-.5px;color:#f5f5f0">Cruzio<span style="color:#f59e0b">.in</span></div>
             <div style="font-size:10px;color:#555;letter-spacing:.14em;margin-top:2px">SHINE VENTURES</div>
         </div>
-        <!-- Card -->
         <div style="background:#111113;border:1px solid #1f1f22;border-radius:16px;padding:28px 24px">
             ${content}
         </div>
-        <!-- Footer -->
         <div style="text-align:center;margin-top:24px;font-size:12px;color:#444;line-height:1.8">
             © ${new Date().getFullYear()} Cruzio.in · Shine Ventures · Chennai, India<br>
             <a href="https://cruzio.in/#terms" style="color:#555;text-decoration:none">Terms</a> &nbsp;·&nbsp;
@@ -793,7 +868,6 @@ const Email = {
 </body></html>`;
     }
 };
-
 // ────────────────────────────────────────────────
 //  UTILS
 // ────────────────────────────────────────────────
@@ -1682,22 +1756,28 @@ const Booking = {
 async function submitPartnerInquiry(e) {
     e.preventDefault();
     setBtn('partner-submit-btn', `<span class="spinner"></span> Submitting...`, true);
-    const name = document.getElementById('p-name').value;
-    const phone = document.getElementById('p-phone').value;
-    const email = document.getElementById('p-email').value;
-    const vehicle = document.getElementById('p-vehicle').value;
+    const name    = document.getElementById('p-name').value.trim();
+    const phone   = document.getElementById('p-phone').value.trim();
+    const email   = document.getElementById('p-email').value.trim();
+    const vehicle = document.getElementById('p-vehicle').value.trim();
     try {
-        await sb.from('partner_inquiries').insert([{ name, phone, email, vehicle_details: vehicle }]);
+        const { data: inserted } = await sb.from('partner_inquiries')
+            .insert([{ name, phone, email: email || null, vehicle_details: vehicle || null }])
+            .select().single();
+        const record = inserted || { name, phone, email, vehicle_details: vehicle, created_at: new Date().toISOString() };
         if (CFG.FORMSPREE && CFG.FORMSPREE !== 'YOUR_FORMSPREE_FORM_ID') {
             fetch(`https://formspree.io/f/${CFG.FORMSPREE}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify({ _subject: `🚘 Partner Inquiry — ${name}`, name, phone, email, vehicle }),
+                body: JSON.stringify({ _subject: `Partner Inquiry - ${name}`, name, phone, email, vehicle }),
             }).catch(() => {});
         }
+        Email.adminNewPartnerInquiry(record);
+        if (email) Email.partnerInquiryReceived(record);
         Modals.close('partner-modal');
-        toast('Inquiry submitted! We\'ll reach out to you shortly.');
+        toast("Inquiry submitted! We'll reach out to you shortly.");
         e.target.reset();
     } catch(err) {
+        console.error(err);
         toast('Failed to submit. Please WhatsApp us directly.', 'error');
     }
     setBtn('partner-submit-btn', 'Submit Inquiry', false);
@@ -1947,11 +2027,12 @@ const AdminCtrl = {
         // Fetch full record so we can send the right email
         const { data: b } = await sb.from('bookings').select('*').eq('id', id).single();
         if (b) {
-            if (status === 'approved')  Email.bookingApproved(b);
-            if (status === 'rejected')  Email.bookingRejected(b);
+            if (status === 'approved') Email.bookingApproved(b);
+            if (status === 'rejected') Email.bookingRejected(b);
+            Email.adminBookingUpdated(b, status);
         }
-        const label = status === 'approved' ? '✓ Approved — confirmation email sent'
-                    : status === 'rejected' ? 'Rejected — email sent to customer'
+        const label = status === 'approved' ? '✓ Approved — emails sent to customer & team'
+                    : status === 'rejected' ? 'Rejected — emails sent to customer & team'
                     : 'Status reverted to pending';
         toast(label, status === 'rejected' ? 'error' : 'success');
         AdminCtrl.bookings();
@@ -2153,4 +2234,3 @@ const AdminCtrl = {
 </script>
 </body>
 </html>
-
