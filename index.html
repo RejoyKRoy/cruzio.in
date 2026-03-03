@@ -756,8 +756,10 @@ const Router = {
         document.getElementById('main').className = 'pt-16 min-h-screen';
 
         switch (view) {
-            case 'cars': document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); break;
-            default:     document.getElementById('main').innerHTML = Views.home(); break;
+            case 'cars':    document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); break;
+            case 'terms':   document.getElementById('main').innerHTML = Views.terms(); break;
+            case 'privacy': document.getElementById('main').innerHTML = Views.privacy(); break;
+            default:        document.getElementById('main').innerHTML = Views.home(); break;
         }
     }
 };
@@ -887,8 +889,8 @@ const Views = {
                     <div class="text-sm mt-1 font-semibold" style="color:var(--accent)">${CFG.PHONE}</div>
                 </div>
                 <div class="flex gap-6 text-sm" style="color:var(--muted)">
-                    <a href="#" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">Terms</a>
-                    <a href="#" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">Privacy</a>
+                    <a href="#" onclick="Router.go('terms')" style="color:var(--muted);text-decoration:none">Terms</a>
+                    <a href="#" onclick="Router.go('privacy')" style="color:var(--muted);text-decoration:none">Privacy</a>
                     <a href="#" onclick="Modals.open('partner-modal')" style="color:var(--muted);text-decoration:none" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">List Vehicle</a>
                 </div>
                 <div class="text-xs" style="color:var(--muted)">© ${new Date().getFullYear()} Cruzio.in</div>
@@ -927,7 +929,195 @@ const Views = {
         </div>
     `,
 
-    carCard: (car) => `
+  terms: () => `
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-14">
+            <div class="mb-10">
+                <a href="#" onclick="Router.go('home')" style="font-size:13px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:24px">
+                    ← Back to Home
+                </a>
+                <h1 class="font-display text-4xl font-extrabold mb-2">Terms &amp; Conditions</h1>
+                <p style="color:var(--muted);font-size:14px">Last updated: ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})} · Cruzio Car Rental by Shine Ventures</p>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:2px">
+
+                ${[
+                    ['1. Rental Agreement', `By renting a vehicle from Cruzio Car Rental, you agree to the following terms and conditions outlined in this rental agreement. These terms apply to all bookings made through cruzio.in, WhatsApp, phone, or any other channel operated by Shine Ventures.`],
+
+                    ['2. Rental Eligibility', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Renters must be at least <strong>21 years of age</strong>. Minimum age may vary depending on vehicle type.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Renters must possess a <strong>valid driver's licence for at least one year</strong>.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>A valid credit card in the renter's name is required for the security deposit.</span></li>
+                    </ul>`],
+
+                    ['3. Booking & Payment Terms', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Advance Payment:</strong> A security deposit equal to one day's rental charge is required. This will be refunded upon the vehicle's safe return, subject to terms.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Booking Confirmation:</strong> The vehicle will not be released without advance payment confirmation.</span></li>
+                    </ul>`],
+
+                    ['4. Extension Policy', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Renters must provide at least <strong>one (1) day's notice</strong> for any rental period extension.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Late extension:</strong> If no prior notice is given, an additional charge of <strong>₹2,000</strong> will apply to the total rental fee.</span></li>
+                    </ul>`],
+
+                    ['5. Fuel Policy', `Vehicles are provided with fuel at the level available at the time of delivery or pickup. The renter is required to return the vehicle with the <strong>same fuel level</strong>. If returned with less fuel, the renter will be charged for the fuel difference at the prevailing market rate, plus a refuelling service charge.`],
+
+                    ['6. Accident, Damage & Insurance Liability', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>In case of an accident or vehicle damage, the renter must <strong>immediately notify Cruzio Car Rental</strong>.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>The renter will be responsible for a <strong>minimum penalty of ₹20,000</strong> (Indian Rupees Twenty Thousand) to cover insurance claim processing and business loss due to downtime.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>This amount does not limit additional liability. The renter is responsible for any damages exceeding insurance coverage.</span></li>
+                    </ul>`],
+
+                    ['7. Cancellations & Modifications', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--green);flex-shrink:0">›</span><span>Cancellations made <strong>at least 48 hours</strong> before the rental start time are eligible for a <strong>full refund</strong>.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--red);flex-shrink:0">›</span><span>Cancellations made <strong>within 48 hours</strong> of the rental start time will incur a cancellation fee.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Changes to the reservation (vehicle type, dates) may be allowed subject to availability, with additional charges if applicable.</span></li>
+                    </ul>`],
+
+                    ['8. Security Deposit', `A security deposit is required at the time of vehicle pickup. The deposit will be refunded upon the safe return of the vehicle, provided there are no damages, fuel shortfalls, or additional charges outstanding.`],
+
+                    ['9. Roadside Assistance', `Cruzio Car Rental provides <strong>24/7 roadside assistance</strong> in case of breakdowns, accidents, or emergencies. Please contact our customer service hotline for assistance. The renter is responsible for any towing charges not related to mechanical failure.`],
+
+                    ['10. Liability & Indemnity', `Cruzio Car Rental is not liable for any personal injury, loss of property, or damage caused during the rental period, except as required by applicable law. Renters are solely responsible for any fines, penalties, or traffic violations incurred during the rental period.`],
+
+                ].map(([title, body]) => `
+                    <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card);margin-bottom:10px">
+                        <div style="padding:18px 22px;border-bottom:1px solid var(--border);background:var(--surface)">
+                            <h2 class="font-display font-bold text-lg">${title}</h2>
+                        </div>
+                        <div style="padding:18px 22px;font-size:15px;line-height:1.8;color:var(--muted)">${body}</div>
+                    </div>
+                `).join('')}
+
+                <!-- Note -->
+                <div style="border:1px solid rgba(245,158,11,.3);border-radius:14px;padding:18px 22px;background:rgba(245,158,11,.06);margin-top:8px">
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        <span style="font-size:20px;flex-shrink:0">📌</span>
+                        <p style="font-size:14px;color:var(--muted);line-height:1.7"><strong style="color:var(--fg)">Note:</strong> This document may be updated periodically. Please review it before each rental transaction. By proceeding with a booking, you acknowledge that you have read and agreed to these terms.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact strip -->
+            <div style="margin-top:40px;padding:24px;border-radius:16px;background:var(--surface);border:1px solid var(--border);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
+                <div>
+                    <div class="font-display font-bold text-lg">Questions about our terms?</div>
+                    <div style="color:var(--muted);font-size:14px;margin-top:4px">Reach our team — we're happy to clarify anything.</div>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <a href="tel:+919605370108" class="btn btn-ghost" style="text-decoration:none">📞 Call Us</a>
+                    <a href="${CFG.WA}Hi%20Cruzio%2C%20I%20have%20a%20question%20about%20your%20terms" target="_blank" class="btn btn-primary" style="text-decoration:none">WhatsApp</a>
+                </div>
+            </div>
+
+            <div style="margin-top:32px;text-align:center;font-size:13px;color:var(--muted)">
+                © ${new Date().getFullYear()} Cruzio.in · A product of Shine Ventures · Chennai, India
+            </div>
+        </div>
+    `,
+
+    privacy: () => `
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 py-14">
+            <div class="mb-10">
+                <a href="#" onclick="Router.go('home')" style="font-size:13px;color:var(--muted);text-decoration:none;display:inline-flex;align-items:center;gap:6px;margin-bottom:24px">
+                    ← Back to Home
+                </a>
+                <h1 class="font-display text-4xl font-extrabold mb-2">Privacy Policy</h1>
+                <p style="color:var(--muted);font-size:14px">Last updated: ${new Date().toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})} · Cruzio Car Rental by Shine Ventures</p>
+            </div>
+
+            <div>
+                ${[
+                    ['1. Who We Are', `Cruzio Car Rental is operated by <strong>Shine Ventures</strong>, based in Chennai, India. We run the platform available at <strong>cruzio.in</strong>. This Privacy Policy explains how we collect, use, and protect your personal information when you use our website or services.`],
+
+                    ['2. Information We Collect', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Booking Information:</strong> Your name, phone number, email address, rental dates, and vehicle preference when you submit a booking request.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Partner Inquiries:</strong> Name, phone, email, and vehicle details submitted via the "List Your Vehicle" form.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Communications:</strong> Any messages you send us via WhatsApp or phone call.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Usage Data:</strong> Basic analytics such as pages visited and browser type (non-personally identifiable).</span></li>
+                    </ul>`],
+
+                    ['3. How We Use Your Information', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>To <strong>process and confirm</strong> your rental booking request.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>To <strong>contact you</strong> via phone or WhatsApp to confirm your booking details.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>To <strong>send booking-related communications</strong> (confirmation, reminders, updates).</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>To <strong>improve our services</strong> and fleet offerings based on booking patterns.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>We will <strong>never sell your data</strong> to third parties or use it for unrelated marketing.</span></li>
+                    </ul>`],
+
+                    ['4. Data Storage & Security', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Your data is stored securely on <strong>Supabase</strong> infrastructure, which uses industry-standard encryption at rest and in transit.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Booking notifications are processed through <strong>Formspree</strong>, a secure form processing service.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>Access to booking data is restricted to authorised Cruzio staff only, protected by authenticated login.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>We retain booking data for up to <strong>2 years</strong> for accounting and legal compliance, after which it is deleted.</span></li>
+                    </ul>`],
+
+                    ['5. Cookies & Tracking', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>We use <strong>localStorage</strong> on your browser only to remember your theme preference (dark/light mode). No personal data is stored in cookies.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>We do <strong>not</strong> use advertising cookies, tracking pixels, or third-party analytics at this time.</span></li>
+                    </ul>`],
+
+                    ['6. Third-Party Services', `We use the following trusted third-party services to operate our platform:
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+                        ${[['Supabase','Database & authentication hosting','supabase.com'],['Formspree','Booking notification emails','formspree.io'],['Google Fonts','Typography (Syne & DM Sans)','fonts.google.com'],['WhatsApp (Meta)','Direct customer communication','whatsapp.com']].map(([name,desc,url]) => `
+                            <div style="display:flex;align-items:center;gap:14px;padding:12px 16px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+                                <div style="flex:1"><strong style="font-size:14px">${name}</strong><div style="font-size:12px;color:var(--muted);margin-top:2px">${desc}</div></div>
+                                <a href="https://${url}" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none">${url}</a>
+                            </div>
+                        `).join('')}
+                    </div>`],
+
+                    ['7. Your Rights', `<ul style="list-style:none;display:flex;flex-direction:column;gap:10px;padding:0">
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Access:</strong> You may request a copy of the personal data we hold about you.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Correction:</strong> You may ask us to correct any inaccurate information.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span><strong>Deletion:</strong> You may request deletion of your booking data, subject to legal retention obligations.</span></li>
+                        <li style="display:flex;gap:10px"><span style="color:var(--accent);flex-shrink:0">›</span><span>To exercise any of these rights, contact us via WhatsApp or email at <strong>+91 96053 70108</strong>.</span></li>
+                    </ul>`],
+
+                    ['8. Children\'s Privacy', `Cruzio Car Rental is not intended for use by individuals under the age of 18. We do not knowingly collect personal data from minors. If you believe a minor has submitted data through our platform, please contact us immediately and we will delete it.`],
+
+                    ['9. Changes to This Policy', `We may update this Privacy Policy from time to time. Any changes will be reflected on this page with an updated date. Continued use of cruzio.in after changes constitutes acceptance of the updated policy. We encourage you to review this page periodically.`],
+
+                    ['10. Contact Us', `For any privacy-related questions, data requests, or concerns:<br><br>
+                        <div style="display:flex;flex-direction:column;gap:8px">
+                            <div style="padding:12px 16px;background:var(--surface);border-radius:10px;border:1px solid var(--border);font-size:14px"><strong>Shine Ventures</strong> · cruzio.in</div>
+                            <div style="padding:12px 16px;background:var(--surface);border-radius:10px;border:1px solid var(--border);font-size:14px">📱 <a href="tel:+919605370108" style="color:var(--accent);text-decoration:none">+91 96053 70108</a></div>
+                            <div style="padding:12px 16px;background:var(--surface);border-radius:10px;border:1px solid var(--border);font-size:14px">📍 Chennai, Tamil Nadu, India</div>
+                        </div>`],
+
+                ].map(([title, body]) => `
+                    <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card);margin-bottom:10px">
+                        <div style="padding:18px 22px;border-bottom:1px solid var(--border);background:var(--surface)">
+                            <h2 class="font-display font-bold text-lg">${title}</h2>
+                        </div>
+                        <div style="padding:18px 22px;font-size:15px;line-height:1.8;color:var(--muted)">${body}</div>
+                    </div>
+                `).join('')}
+
+                <div style="border:1px solid rgba(245,158,11,.3);border-radius:14px;padding:18px 22px;background:rgba(245,158,11,.06);margin-top:8px">
+                    <div style="display:flex;gap:12px;align-items:flex-start">
+                        <span style="font-size:20px;flex-shrink:0">🔒</span>
+                        <p style="font-size:14px;color:var(--muted);line-height:1.7"><strong style="color:var(--fg)">Your privacy matters to us.</strong> We collect only what we need to process your booking and will never misuse your data. If you have any concerns, please reach out directly — we respond within 24 hours.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:40px;padding:24px;border-radius:16px;background:var(--surface);border:1px solid var(--border);display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:16px">
+                <div>
+                    <div class="font-display font-bold text-lg">Privacy questions?</div>
+                    <div style="color:var(--muted);font-size:14px;margin-top:4px">We take data seriously. Get in touch anytime.</div>
+                </div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <a href="tel:+919605370108" class="btn btn-ghost" style="text-decoration:none">📞 Call Us</a>
+                    <a href="${CFG.WA}Hi%20Cruzio%2C%20I%20have%20a%20privacy%20question" target="_blank" class="btn btn-primary" style="text-decoration:none">WhatsApp</a>
+                </div>
+            </div>
+
+            <div style="margin-top:32px;text-align:center;font-size:13px;color:var(--muted)">
+                © ${new Date().getFullYear()} Cruzio.in · A product of Shine Ventures · Chennai, India
+            </div>
+        </div>
+    `,
         <div class="car-card" onclick="Booking.open('${esc(car.id)}')">
             <div style="position:relative">
                 <img src="${esc(car.image_url || '')}" alt="${esc(car.name)}"
@@ -1520,3 +1710,4 @@ const AdminCtrl = {
 </script>
 </body>
 </html>
+
