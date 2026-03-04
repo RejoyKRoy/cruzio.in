@@ -598,9 +598,7 @@ const CFG = {
     SB_URL:       'https://flxjlkxfydsrruszrldy.supabase.co',
     SB_KEY:       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZseGpsa3hmeWRzcnJ1c3pybGR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5Mzc0OTYsImV4cCI6MjA4NzUxMzQ5Nn0.vLkSmPjIo79JmzsgMZD89R0GaGzZQMlcp2n6tKU4tP4',
     FORMSPREE:    'xvzbylez',
-    BREVO_KEY:    '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',
-    SENDER_EMAIL: 'bookings@cruzio.in',
-    SENDER_NAME:  'Cruzio Car Rental',
+    // Brevo key is stored as a Supabase secret — not exposed here
     ADMIN_EMAILS: ['admin@cruzio.in', 'sid123jayan@gmail.com'],
     PHONE:        '+91 96053 70108',
     WA:           'https://wa.me/919605370108?text=',
@@ -627,29 +625,21 @@ const S = {
 // ────────────────────────────────────────────────
 const Email = {
 
-    // Core send — `to` can be a single email string or array of email strings
+    // Core send — calls Supabase Edge Function (Brevo key is server-side only)
+    // `to` can be a single email string or array of email strings
     async send({ to, toName, subject, html }) {
-        if (!CFG.BREVO_KEY) return;
-        const recipients = Array.isArray(to)
-            ? to.map(e => ({ email: e }))
-            : [{ email: to, name: toName || to }];
         try {
-            const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+            const res = await fetch(`${CFG.SB_URL}/functions/v1/send-email`, {
                 method: 'POST',
                 headers: {
-                    'api-key': CFG.BREVO_KEY,
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json',
+                    'apikey': CFG.SB_KEY,
+                    'Authorization': `Bearer ${CFG.SB_KEY}`,
                 },
-                body: JSON.stringify({
-                    sender: { name: CFG.SENDER_NAME, email: CFG.SENDER_EMAIL },
-                    to: recipients,
-                    subject,
-                    htmlContent: html,
-                }),
+                body: JSON.stringify({ to, toName, subject, html }),
             });
-            if (!res.ok) console.warn('Brevo error:', res.status, await res.text().catch(() => ''));
-        } catch(e) { console.warn('Brevo send failed:', e.message); }
+            if (!res.ok) console.warn('send-email function error:', res.status, await res.text().catch(() => ''));
+        } catch(e) { console.warn('send-email failed:', e.message); }
     },
 
     // ── Customer: booking request received ───────
@@ -2234,3 +2224,4 @@ const AdminCtrl = {
 </script>
 </body>
 </html>
+
