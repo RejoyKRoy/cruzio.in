@@ -424,19 +424,43 @@
         </div>
 
         <!-- ── Step 3: Success ── -->
-        <div id="bk-s3" class="p-8 text-center hidden">
-            <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5" style="background:rgba(34,197,94,.15)">
-                <svg class="w-8 h-8" style="color:var(--green)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+        <div id="bk-s3" class="hidden">
+            <!-- ✅ Hero: Booking confirmed -->
+            <div style="background:rgba(34,197,94,.07);border-bottom:1px solid rgba(34,197,94,.15);padding:28px 24px;text-align:center">
+                <div class="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style="background:rgba(34,197,94,.18);border:1.5px solid rgba(34,197,94,.4)">
+                    <svg class="w-7 h-7" style="color:var(--green)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h3 class="font-display text-2xl font-bold mb-1" style="color:var(--fg)">Booking Submitted!</h3>
+                <p class="text-sm" style="color:var(--muted);max-width:300px;margin:0 auto">Your request is saved. Our team will confirm within 30 minutes.</p>
             </div>
-            <h3 class="font-display text-2xl font-bold mb-2">Request Submitted!</h3>
-            <p class="text-sm mb-6" style="color:var(--muted);max-width:340px;margin:0 auto 24px">Our team will call you within 30 minutes to confirm your booking details.</p>
-            <div id="bk-success-summary" class="p-4 rounded-xl text-sm text-left mb-6 space-y-2.5" style="background:var(--surface);border:1px solid var(--border)"></div>
-            <div class="flex gap-3 justify-center">
-                <button onclick="Modals.close('booking-modal')" class="btn btn-ghost">Close</button>
-                <a id="bk-wa-link" href="#" target="_blank" class="btn btn-primary">
-                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    Chat on WhatsApp
-                </a>
+
+            <div class="p-5 space-y-3">
+                <!-- Booking summary -->
+                <div id="bk-success-summary" class="p-4 rounded-xl text-sm space-y-2.5" style="background:var(--surface);border:1px solid var(--border)"></div>
+
+                <!-- Email note -->
+                <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:rgba(59,130,246,.05);border:1px solid rgba(59,130,246,.12);border-radius:10px">
+                    <span style="font-size:15px;flex-shrink:0">✉️</span>
+                    <p class="text-xs" style="color:var(--muted);line-height:1.6;margin:0">Confirmation sent to your email. Check spam if you don't see it.</p>
+                </div>
+
+                <!-- WhatsApp — optional nudge, NOT a gate -->
+                <div style="background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);border-radius:12px;padding:14px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:180px">
+                        <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:2px">⚡ Speed up your confirmation</div>
+                        <div style="font-size:12px;color:var(--muted);line-height:1.5">Drop us a quick WhatsApp — your details are pre-filled, just tap Send.</div>
+                    </div>
+                    <a id="bk-wa-link" href="#" target="_blank"
+                        style="display:inline-flex;align-items:center;gap:8px;background:#25D366;color:#fff;padding:10px 18px;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;flex-shrink:0;white-space:nowrap">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        WhatsApp Us
+                    </a>
+                </div>
+
+                <!-- Close — primary CTA -->
+                <button onclick="Modals.close('booking-modal')" class="btn btn-primary" style="width:100%">
+                    Done — Close
+                </button>
             </div>
         </div>
     </div>
@@ -458,7 +482,11 @@
             </div>
             <div>
                 <label class="lbl">PASSWORD</label>
-                <input type="password" id="l-pass" class="inp" placeholder="••••••••" required>
+<div style="position:relative">
+                    <input type="password" id="l-pass" class="inp" placeholder="••••••••" required style="padding-right:44px">
+                    <button type="button" onclick="togglePw('l-pass',this)" title="Show password"
+                        style="position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px;color:var(--muted)">👁</button>
+                </div>
             </div>
             <button type="submit" id="login-btn" class="btn btn-primary" style="width:100%">Login</button>
             <p class="text-xs text-center" style="color:var(--muted)">Cruzio admin &amp; partner portal only.</p>
@@ -606,6 +634,22 @@ const CFG = {
 
 const sb = window.supabase.createClient(CFG.SB_URL, CFG.SB_KEY);
 
+// Returns the current user's session JWT (needed for Edge Functions that verify identity)
+// Falls back to anon key if no session (should not happen for admin actions)
+async function getToken() {
+    const { data: { session } } = await sb.auth.getSession();
+    return session?.access_token || CFG.SB_KEY;
+}
+
+// Global peek-password toggle (works on any input by id)
+function togglePw(id, btn) {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    if (btn) btn.textContent = show ? '🙈' : '👁';
+}
+
 // ────────────────────────────────────────────────
 //  STATE
 // ────────────────────────────────────────────────
@@ -626,20 +670,22 @@ const S = {
 const Email = {
 
     // Core send — calls Supabase Edge Function (Brevo key is server-side only)
-    // `to` can be a single email string or array of email strings
-    async send({ to, toName, subject, html }) {
-        try {
-            const res = await fetch(`${CFG.SB_URL}/functions/v1/send-email`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': CFG.SB_KEY,
-                    'Authorization': `Bearer ${CFG.SB_KEY}`,
-                },
-                body: JSON.stringify({ to, toName, subject, html }),
-            });
-            if (!res.ok) console.warn('send-email function error:', res.status, await res.text().catch(() => ''));
-        } catch(e) { console.warn('send-email failed:', e.message); }
+    // Fire-and-forget: never blocks the UI, failures are logged only
+    send({ to, toName, subject, html }) {
+        fetch(`${CFG.SB_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'apikey': CFG.SB_KEY,
+                'Authorization': `Bearer ${CFG.SB_KEY}`,
+            },
+            body: JSON.stringify({ to, toName, subject, html }),
+        })
+        .then(res => {
+            if (!res.ok) res.text().then(t => console.warn('[Email] send failed:', res.status, t)).catch(() => {});
+        })
+        .catch(e => console.warn('[Email] fetch error:', e.message));
+        // Returns immediately — email delivery is best-effort and never blocks the booking flow
     },
 
     // ── Customer: booking request received ───────
@@ -1487,7 +1533,7 @@ const Views = {
 
                 <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:0 4px;margin-bottom:6px">Management</div>
                 <nav style="flex:1;display:flex;flex-direction:column;gap:2px" id="sidebar-nav">
-                    ${[['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries']].map(([id,ic,lb]) => `
+                    ${[['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['team','👥','Team & Access']].map(([id,ic,lb]) => `
                         <button class="stab" id="stab-${id}" onclick="AdminCtrl.tab('${id}')">${ic} ${lb}</button>
                     `).join('')}
                 </nav>
@@ -1694,10 +1740,19 @@ const Booking = {
 
         try {
             // 1. Save to Supabase
+            // Split insert and select — some RLS configs block combined insert().select()
             const { error: dbErr } = await sb.from('bookings').insert([record]);
             if (dbErr) throw dbErr;
+            // Best-effort fetch for email data — fall back to local record if RLS blocks select
+            let fullRecord = { ...record, created_at: new Date().toISOString() };
+            try {
+                const { data: inserted } = await sb.from('bookings')
+                    .select('*').eq('customer_email', email).eq('car_id', S.car.id)
+                    .order('created_at', { ascending: false }).limit(1).single();
+                if (inserted) fullRecord = inserted;
+            } catch(_) {}
 
-            // 2. Formspree notification
+            // 2. Formspree — backup admin notification (independent of email service)
             if (CFG.FORMSPREE && CFG.FORMSPREE !== 'YOUR_FORMSPREE_FORM_ID') {
                 fetch(`https://formspree.io/f/${CFG.FORMSPREE}`, {
                     method: 'POST',
@@ -1713,13 +1768,27 @@ const Booking = {
                 }).catch(() => {});
             }
 
-            // 3. Brevo emails — customer confirmation + admin alert
-            Email.bookingReceived(record, total);
-            Email.adminNewBooking(record, total);
+            // 3. Emails — fire-and-forget, never block the UI
+            //    Customer gets booking received confirmation
+            //    All admins get new booking alert
+            //    Both are independent — if one fails the other still fires
+            Email.bookingReceived(fullRecord, total);
+            Email.adminNewBooking(fullRecord, total);
 
             // 3. Prefill WhatsApp link
-            const waMsg = encodeURIComponent(`Hi Cruzio! I just submitted a booking request.\n\nCar: ${S.car.name}\nDates: ${fmtDate(s)} → ${fmtDate(e)}\nName: ${name}\nPhone: ${phone}\n\nPlease confirm my booking.`);
-            document.getElementById('bk-wa-link').href = CFG.WA + waMsg;
+            const waMsg = encodeURIComponent(
+                `Hi Cruzio! 👋 I'd like to confirm my car rental booking.\n\n` +
+                `🚗 *Car:* ${S.car.name}\n` +
+                `📅 *Pickup:* ${fmtDate(s)}\n` +
+                `🏁 *Return:* ${fmtDate(e)}\n` +
+                `⏱ *Duration:* ${d} day${d>1?'s':''}\n` +
+                `💰 *Est. Total:* ${fmtCur(total)}\n\n` +
+                `👤 *Name:* ${name}\n` +
+                `📱 *Phone:* ${phone}\n` +
+                (msg ? `📝 *Note:* ${msg}\n\n` : '\n') +
+                `Please confirm my slot. Thank you!`
+            );
+            document.getElementById('bk-wa-link').href = 'https://wa.me/15558600840?text=' + waMsg;
 
             // 4. Success summary
             document.getElementById('bk-success-summary').innerHTML = `
@@ -1732,8 +1801,19 @@ const Booking = {
             Booking.setStep(3);
 
         } catch(err) {
-            toast('Failed to submit. Please try WhatsApp or call us directly.', 'error');
-            console.error(err);
+            console.error('[Booking.submit] ERROR:', err);
+            const msg = err?.message || err?.details || String(err) || '';
+            // Show the real error in dev, friendly message in prod
+            const friendly = msg.includes('network') || msg.includes('fetch')
+                ? 'Network error — check your connection and try again.'
+                : msg.includes('violates') || msg.includes('constraint')
+                ? 'Booking data invalid: ' + msg
+                : msg.includes('policy') || msg.includes('permission') || msg.includes('denied')
+                ? 'Permission error — please contact support. (' + msg + ')'
+                : msg
+                ? 'Error: ' + msg
+                : 'Could not save booking — please WhatsApp or call us directly.';
+            toast(friendly, 'error');
         }
 
         setBtn('bk-submit-btn', 'Confirm Request', false);
@@ -1931,6 +2011,7 @@ const AdminCtrl = {
         if (name === 'bookings')   AdminCtrl.bookings();
         if (name === 'cars')       AdminCtrl.fleet();
         if (name === 'inquiries')  AdminCtrl.inquiries();
+        if (name === 'team')       AdminCtrl.team();
     },
 
     // ── BOOKINGS ──
@@ -1998,7 +2079,7 @@ const AdminCtrl = {
                 <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
                         <a href="tel:${esc(b.customer_phone)}" class="btn btn-ghost btn-sm" style="text-decoration:none">📞 Call</a>
-                        <a href="${CFG.WA}${encodeURIComponent(`Hi ${b.customer_name}, this is Cruzio. Regarding your booking request for ${b.car_name}.`)}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">WhatsApp</a>
+                        <a href="https://wa.me/91${b.customer_phone.replace(/\D/g,'').replace(/^91/,'')}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">📱 WhatsApp Customer</a>
                     </div>
                     ${b.status === 'pending' ? `
                         <div style="display:flex;gap:6px">
@@ -2013,18 +2094,66 @@ const AdminCtrl = {
     `,
 
     async updateBooking(id, status) {
-        await sb.from('bookings').update({ status }).eq('id', id);
-        // Fetch full record so we can send the right email
-        const { data: b } = await sb.from('bookings').select('*').eq('id', id).single();
-        if (b) {
-            if (status === 'approved') Email.bookingApproved(b);
-            if (status === 'rejected') Email.bookingRejected(b);
-            Email.adminBookingUpdated(b, status);
+        try {
+            const { error: updateErr } = await sb.from('bookings').update({ status }).eq('id', id);
+            if (updateErr) throw updateErr;
+
+            // Fetch full record for accurate notification data
+            const { data: b, error: fetchErr } = await sb.from('bookings').select('*').eq('id', id).single();
+            if (fetchErr) throw fetchErr;
+
+            // ── Emails (fire-and-forget, always sent) ──────────────────────
+            if (status === 'approved') Email.bookingApproved(b);   // → customer
+            if (status === 'rejected') Email.bookingRejected(b);   // → customer
+            Email.adminBookingUpdated(b, status);                   // → all admins
+
+            // ── WhatsApp auto-message on approval ──────────────────────────
+            // Sent via send-whatsapp Edge Function using Emovor API
+            // Free session message — works within 24hr window if customer previously messaged
+            // Falls back silently if no open session exists
+            if (status === 'approved' || status === 'rejected') {
+                const waText = status === 'approved'
+                    ? `Hi ${b.customer_name}! 🎉 Your Cruzio booking has been *confirmed*.
+
+🚗 *Car:* ${b.car_name}
+📅 *Pickup:* ${b.start_date}
+🏁 *Return:* ${b.end_date}
+💰 *Total:* ₹${b.estimated_price}
+
+Our team will call you shortly with pickup details. Thank you for choosing Cruzio! 🙏`
+                    : `Hi ${b.customer_name}, this is Cruzio. Unfortunately we're unable to confirm your booking for *${b.car_name}* on the requested dates due to availability.
+
+Please visit cruzio.in or message us here to check other options. Sorry for the inconvenience! 🙏`;
+
+                fetch(`${CFG.SB_URL}/functions/v1/send-whatsapp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': CFG.SB_KEY,
+                        'Authorization': `Bearer ${await getToken()}`,
+                    },
+                    body: JSON.stringify({
+                        type: 'text',
+                        to: b.customer_phone,
+                        text: waText,
+                    }),
+                })
+                .then(r => r.json().then(d => {
+                    if (!r.ok) console.warn('[WA] send failed:', d);
+                    else console.log('[WA] sent to', b.customer_phone);
+                }))
+                .catch(e => console.warn('[WA] fetch error:', e.message));
+            }
+
+            const label = status === 'approved' ? '✓ Approved — email + WhatsApp sent to customer'
+                        : status === 'rejected' ? 'Rejected — email + WhatsApp sent to customer'
+                        : 'Reverted to pending';
+            toast(label, status === 'rejected' ? 'error' : 'success');
+
+        } catch(err) {
+            console.error('[updateBooking]', err);
+            toast('Failed to update status: ' + (err.message || err), 'error');
         }
-        const label = status === 'approved' ? '✓ Approved — emails sent to customer & team'
-                    : status === 'rejected' ? 'Rejected — emails sent to customer & team'
-                    : 'Status reverted to pending';
-        toast(label, status === 'rejected' ? 'error' : 'success');
         AdminCtrl.bookings();
     },
 
@@ -2202,7 +2331,7 @@ const AdminCtrl = {
                                 </div>
                                 <div style="display:flex;gap:6px;align-items:flex-start">
                                     <a href="tel:${esc(i.phone)}" class="btn btn-ghost btn-sm" style="text-decoration:none">📞 Call</a>
-                                    <a href="${CFG.WA}${encodeURIComponent(`Hi ${i.name}, this is Cruzio. We received your vehicle listing inquiry and would love to connect!`)}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">WhatsApp</a>
+                                    <a href="https://wa.me/91${i.phone.replace(/\D/g,'').replace(/^91/,'')}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">📱 WhatsApp</a>
                                 </div>
                             </div>
                         </div>
@@ -2210,6 +2339,432 @@ const AdminCtrl = {
                 </div>
             `}
         `;
+    }
+,
+
+    // ── TEAM & ACCESS (admin only) ────────────────
+    async team() {
+        // Guard — only admin can access
+        if (S.profile?.role !== 'admin') {
+            document.getElementById('admin-content').innerHTML = `
+                <div style="text-align:center;padding:80px 20px;color:var(--muted)">
+                    <div style="font-size:40px;margin-bottom:12px">🔒</div>
+                    <p class="font-bold text-lg">Access Restricted</p>
+                    <p class="text-sm mt-2">Only admin users can manage team access.</p>
+                </div>`;
+            return;
+        }
+
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px;color:var(--muted)"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+
+        // Fetch all profiles
+        const { data: profiles, error } = await sb.from('profiles').select('*').order('created_at', { ascending: true });
+
+        if (error) {
+            c.innerHTML = `<div style="text-align:center;padding:60px;color:var(--red)">Failed to load team: ${esc(error.message)}</div>`;
+            return;
+        }
+
+        const members = profiles || [];
+        const admins  = members.filter(p => p.role === 'admin');
+        const staff   = members.filter(p => p.role !== 'admin');
+
+        c.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 class="font-display text-2xl font-extrabold">Team & Access</h2>
+                    <p class="text-sm mt-1" style="color:var(--muted)">${members.length} member${members.length !== 1 ? 's' : ''} · Manage staff logins, roles & contact details</p>
+                </div>
+                <button onclick="AdminCtrl.openStaffForm()" class="btn btn-primary">+ Add Staff</button>
+            </div>
+
+            ${admins.length ? `
+                <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Administrators</div>
+                <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px">
+                    ${admins.map(AdminCtrl._staffCard).join('')}
+                </div>` : ''}
+
+            ${staff.length ? `
+                <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Staff & Partners</div>
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    ${staff.map(AdminCtrl._staffCard).join('')}
+                </div>` : ''}
+
+            ${!members.length ? `
+                <div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                    <div style="font-size:40px;margin-bottom:12px">👥</div>
+                    <p>No staff added yet. Click "+ Add Staff" to get started.</p>
+                </div>` : ''}
+
+            <!-- My Account section -->
+            <div style="margin-top:32px;padding:20px;border-radius:16px;background:var(--surface);border:1px solid var(--border)">
+                <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">My Account</div>
+                <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between">
+                    <div>
+                        <div class="font-semibold">${esc(S.profile?.full_name || S.user?.email || 'Admin')}</div>
+                        <div class="text-sm" style="color:var(--muted)">${esc(S.user?.email || '')} · <span style="color:var(--accent);font-weight:600;text-transform:uppercase;font-size:11px">${esc(S.profile?.role || 'admin')}</span></div>
+                    </div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap">
+                        <button onclick="AdminCtrl.openMyAccount()" class="btn btn-ghost btn-sm">✏️ Edit My Details</button>
+                        <button onclick="AdminCtrl.openChangePassword()" class="btn btn-ghost btn-sm">🔑 Change Password</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    _staffCard(p) {
+        const isSelf = p.id === S.user?.id;
+        const roleColor = p.role === 'admin' ? 'var(--accent)' : 'var(--green)';
+        const initials = (p.full_name || p.email || '?').slice(0,2).toUpperCase();
+        return `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+            <div style="width:42px;height:42px;border-radius:50%;background:rgba(245,158,11,.15);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0">${esc(initials)}</div>
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    <span class="font-semibold">${esc(p.full_name || '—')}</span>
+                    <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(245,158,11,.1);color:${roleColor};text-transform:uppercase;letter-spacing:.06em">${esc(p.role || 'staff')}</span>
+                    ${isSelf ? '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:rgba(59,130,246,.1);color:#60a5fa;text-transform:uppercase;letter-spacing:.06em">You</span>' : ''}
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:3px">
+                    ${p.email ? `<span>✉ ${esc(p.email)}</span>` : ''}
+                    ${p.phone ? `<span>📱 ${esc(p.phone)}</span>` : ''}
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0">
+                <button onclick="AdminCtrl.openEditStaff('${esc(p.id)}')" class="btn btn-ghost btn-sm">✏️ Edit</button>
+                <button onclick="AdminCtrl.openResetPassword('${esc(p.id)}','${esc(p.full_name || p.email || '')}')" class="btn btn-ghost btn-sm">🔑 Reset PW</button>
+                ${!isSelf ? `<button onclick="AdminCtrl.removeStaff('${esc(p.id)}','${esc(p.full_name || p.email || '')}')" class="btn btn-danger">Remove</button>` : ''}
+            </div>
+        </div>`;
+    },
+
+    // Open modal to add new staff
+    openStaffForm() {
+        const html = `
+        <div class="modal-bg" id="staff-modal" style="display:flex" onclick="if(event.target===this)this.remove()">
+            <div class="modal-box" style="max-width:440px">
+                <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                    <div>
+                        <h2 class="font-display text-xl font-bold">Add Staff / Partner</h2>
+                        <p class="text-sm mt-0.5" style="color:var(--muted)">Creates a new login for your team</p>
+                    </div>
+                    <button onclick="document.getElementById('staff-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="lbl">FULL NAME *</label><input id="sf-name" type="text" class="inp" placeholder="Jane Smith"></div>
+                        <div><label class="lbl">ROLE *</label>
+                            <select id="sf-role" class="inp">
+                                <option value="staff">Staff</option>
+                                <option value="partner">Partner</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div><label class="lbl">EMAIL ADDRESS *</label><input id="sf-email" type="email" class="inp" placeholder="jane@cruzio.in"></div>
+                    <div><label class="lbl">PHONE NUMBER</label><input id="sf-phone" type="tel" class="inp" placeholder="+91 98765 43210"></div>
+                    <div><label class="lbl">TEMPORARY PASSWORD *</label>
+                        <div style="position:relative">
+                            <input id="sf-pass" type="password" class="inp" placeholder="Min. 8 characters" style="padding-right:44px">
+                            <button type="button" onclick="togglePw('sf-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px">👁</button>
+                        </div>
+                        <p class="text-xs mt-1" style="color:var(--muted)">Share this with the staff member — they should change it after first login.</p>
+                    </div>
+                    <div style="display:flex;gap:10px;padding-top:4px">
+                        <button onclick="document.getElementById('staff-modal').remove()" class="btn btn-ghost" style="flex:1">Cancel</button>
+                        <button onclick="AdminCtrl.createStaff()" id="sf-submit" class="btn btn-primary" style="flex:1">Create Login</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('staff-modal').classList.add('show'), 10);
+    },
+
+    async createStaff() {
+        const name  = document.getElementById('sf-name').value.trim();
+        const email = document.getElementById('sf-email').value.trim();
+        const phone = document.getElementById('sf-phone').value.trim();
+        const pass  = document.getElementById('sf-pass').value;
+        const role  = document.getElementById('sf-role').value;
+
+        if (!name)               return toast('Name is required.', 'error');
+        if (!email.includes('@'))return toast('Valid email is required.', 'error');
+        if (pass.length < 8)     return toast('Password must be at least 8 characters.', 'error');
+
+        setBtn('sf-submit', `<span class="spinner"></span> Creating...`, true);
+
+        try {
+            const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
+                body: JSON.stringify({ action: 'create', email, password: pass, full_name: name, phone: phone || null, role }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to create user');
+            document.getElementById('staff-modal').remove();
+            toast(`✓ ${name} added successfully`);
+            AdminCtrl.team();
+        } catch(err) {
+            toast(err.message, 'error');
+            setBtn('sf-submit', 'Create Login', false);
+        }
+    },
+
+    // Open edit modal for a staff member
+    async openEditStaff(userId) {
+        const { data: p } = await sb.from('profiles').select('*').eq('id', userId).single();
+        if (!p) return toast('Could not load profile.', 'error');
+
+        const html = `
+        <div class="modal-bg" id="edit-staff-modal" style="display:flex" onclick="if(event.target===this)this.remove()">
+            <div class="modal-box" style="max-width:440px">
+                <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                    <h2 class="font-display text-xl font-bold">Edit Staff Member</h2>
+                    <button onclick="document.getElementById('edit-staff-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <input type="hidden" id="es-id" value="${esc(p.id)}">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="lbl">FULL NAME</label><input id="es-name" type="text" class="inp" value="${esc(p.full_name || '')}" placeholder="Full name"></div>
+                        <div><label class="lbl">ROLE</label>
+                            <select id="es-role" class="inp">
+                                <option value="staff" ${p.role==='staff'?'selected':''}>Staff</option>
+                                <option value="partner" ${p.role==='partner'?'selected':''}>Partner</option>
+                                <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div><label class="lbl">EMAIL ADDRESS</label><input id="es-email" type="email" class="inp" value="${esc(p.email || '')}" placeholder="email@cruzio.in"></div>
+                    <div><label class="lbl">PHONE NUMBER</label><input id="es-phone" type="tel" class="inp" value="${esc(p.phone || '')}" placeholder="+91 98765 43210"></div>
+                    <p class="text-xs" style="color:var(--muted)">To change password, use the "Reset PW" button on the team list instead.</p>
+                    <div style="display:flex;gap:10px;padding-top:4px">
+                        <button onclick="document.getElementById('edit-staff-modal').remove()" class="btn btn-ghost" style="flex:1">Cancel</button>
+                        <button onclick="AdminCtrl.saveStaff()" id="es-submit" class="btn btn-primary" style="flex:1">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('edit-staff-modal').classList.add('show'), 10);
+    },
+
+    async saveStaff() {
+        const id    = document.getElementById('es-id').value;
+        const name  = document.getElementById('es-name').value.trim();
+        const email = document.getElementById('es-email').value.trim();
+        const phone = document.getElementById('es-phone').value.trim();
+        const role  = document.getElementById('es-role').value;
+
+        setBtn('es-submit', `<span class="spinner"></span> Saving...`, true);
+        try {
+            const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
+                body: JSON.stringify({ action: 'update', userId: id, full_name: name, email: email || undefined, phone: phone || null, role }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update');
+            document.getElementById('edit-staff-modal').remove();
+            toast('✓ Changes saved');
+            AdminCtrl.team();
+        } catch(err) {
+            toast(err.message, 'error');
+            setBtn('es-submit', 'Save Changes', false);
+        }
+    },
+
+    // Reset password for another staff member
+    openResetPassword(userId, userName) {
+        const html = `
+        <div class="modal-bg" id="reset-pw-modal" style="display:flex" onclick="if(event.target===this)this.remove()">
+            <div class="modal-box" style="max-width:400px">
+                <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                    <div>
+                        <h2 class="font-display text-xl font-bold">Reset Password</h2>
+                        <p class="text-sm mt-0.5" style="color:var(--muted)">${esc(userName)}</p>
+                    </div>
+                    <button onclick="document.getElementById('reset-pw-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <input type="hidden" id="rp-id" value="${esc(userId)}">
+                    <div>
+                        <label class="lbl">NEW PASSWORD *</label>
+                        <div style="position:relative">
+                            <input id="rp-pass" type="password" class="inp" placeholder="Min. 8 characters" style="padding-right:44px">
+                            <button type="button" onclick="togglePw('rp-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px">👁</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="lbl">CONFIRM PASSWORD *</label>
+                        <div style="position:relative">
+                            <input id="rp-confirm" type="password" class="inp" placeholder="Repeat password" style="padding-right:44px">
+                            <button type="button" onclick="togglePw('rp-confirm',this)" title="Show password"
+                                style="position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px;color:var(--muted)">👁</button>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;padding-top:4px">
+                        <button onclick="document.getElementById('reset-pw-modal').remove()" class="btn btn-ghost" style="flex:1">Cancel</button>
+                        <button onclick="AdminCtrl.doResetPassword()" id="rp-submit" class="btn btn-primary" style="flex:1">Set Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('reset-pw-modal').classList.add('show'), 10);
+    },
+
+    async doResetPassword() {
+        const id   = document.getElementById('rp-id').value;
+        const pass = document.getElementById('rp-pass').value;
+        const conf = document.getElementById('rp-confirm').value;
+        if (pass.length < 8) return toast('Password must be at least 8 characters.', 'error');
+        if (pass !== conf)   return toast('Passwords do not match.', 'error');
+
+        setBtn('rp-submit', `<span class="spinner"></span> Setting...`, true);
+        try {
+            const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
+                body: JSON.stringify({ action: 'reset_password', userId: id, password: pass }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+            document.getElementById('reset-pw-modal').remove();
+            toast('✓ Password updated');
+        } catch(err) {
+            toast(err.message, 'error');
+            setBtn('rp-submit', 'Set Password', false);
+        }
+    },
+
+    // My Account — edit own profile details
+    openMyAccount() {
+        const p = S.profile || {};
+        const html = `
+        <div class="modal-bg" id="my-account-modal" style="display:flex" onclick="if(event.target===this)this.remove()">
+            <div class="modal-box" style="max-width:420px">
+                <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                    <h2 class="font-display text-xl font-bold">My Account Details</h2>
+                    <button onclick="document.getElementById('my-account-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div><label class="lbl">FULL NAME</label><input id="ma-name" type="text" class="inp" value="${esc(p.full_name || '')}" placeholder="Your name"></div>
+                    <div><label class="lbl">EMAIL ADDRESS</label><input id="ma-email" type="email" class="inp" value="${esc(p.email || S.user?.email || '')}" placeholder="your@email.com"></div>
+                    <div><label class="lbl">PHONE NUMBER</label><input id="ma-phone" type="tel" class="inp" value="${esc(p.phone || '')}" placeholder="+91 98765 43210"></div>
+                    <div style="display:flex;gap:10px;padding-top:4px">
+                        <button onclick="document.getElementById('my-account-modal').remove()" class="btn btn-ghost" style="flex:1">Cancel</button>
+                        <button onclick="AdminCtrl.saveMyAccount()" id="ma-submit" class="btn btn-primary" style="flex:1">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('my-account-modal').classList.add('show'), 10);
+    },
+
+    async saveMyAccount() {
+        const name  = document.getElementById('ma-name').value.trim();
+        const email = document.getElementById('ma-email').value.trim();
+        const phone = document.getElementById('ma-phone').value.trim();
+
+        setBtn('ma-submit', `<span class="spinner"></span> Saving...`, true);
+        try {
+            // Update profile row
+            await sb.from('profiles').update({ full_name: name, phone: phone || null, email: email || null }).eq('id', S.user.id);
+            // Update auth email if changed
+            if (email && email !== S.user.email) {
+                const { error: authErr } = await sb.auth.updateUser({ email });
+                if (authErr) throw authErr;
+            }
+            // Refresh local profile
+            S.profile = { ...S.profile, full_name: name, phone, email };
+            Auth.renderNav();
+            document.getElementById('my-account-modal').remove();
+            toast('✓ Profile updated');
+            AdminCtrl.team();
+        } catch(err) {
+            toast(err.message, 'error');
+            setBtn('ma-submit', 'Save', false);
+        }
+    },
+
+    // Change own password
+    openChangePassword() {
+        const html = `
+        <div class="modal-bg" id="change-pw-modal" style="display:flex" onclick="if(event.target===this)this.remove()">
+            <div class="modal-box" style="max-width:400px">
+                <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                    <h2 class="font-display text-xl font-bold">Change My Password</h2>
+                    <button onclick="document.getElementById('change-pw-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+                </div>
+                <div class="p-5 space-y-4">
+                    <div>
+                        <label class="lbl">NEW PASSWORD *</label>
+                        <div style="position:relative">
+                            <input id="cp-pass" type="password" class="inp" placeholder="Min. 8 characters" style="padding-right:44px">
+                            <button type="button" onclick="togglePw('cp-pass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:14px">👁</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="lbl">CONFIRM PASSWORD *</label>
+                        <div style="position:relative">
+                            <input id="cp-confirm" type="password" class="inp" placeholder="Repeat password" style="padding-right:44px">
+                            <button type="button" onclick="togglePw('cp-confirm',this)" title="Show password"
+                                style="position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;line-height:1;padding:2px;color:var(--muted)">👁</button>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:10px;padding-top:4px">
+                        <button onclick="document.getElementById('change-pw-modal').remove()" class="btn btn-ghost" style="flex:1">Cancel</button>
+                        <button onclick="AdminCtrl.doChangePassword()" id="cp-submit" class="btn btn-primary" style="flex:1">Update Password</button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => document.getElementById('change-pw-modal').classList.add('show'), 10);
+    },
+
+    async doChangePassword() {
+        const pass = document.getElementById('cp-pass').value;
+        const conf = document.getElementById('cp-confirm').value;
+        if (pass.length < 8) return toast('Password must be at least 8 characters.', 'error');
+        if (pass !== conf)   return toast('Passwords do not match.', 'error');
+
+        setBtn('cp-submit', `<span class="spinner"></span> Updating...`, true);
+        try {
+            const { error } = await sb.auth.updateUser({ password: pass });
+            if (error) throw error;
+            document.getElementById('change-pw-modal').remove();
+            toast('✓ Password changed successfully');
+        } catch(err) {
+            toast(err.message, 'error');
+            setBtn('cp-submit', 'Update Password', false);
+        }
+    },
+
+    async removeStaff(userId, userName) {
+        if (!confirm(`Remove ${userName} from the team? This will delete their login permanently.`)) return;
+        try {
+            const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
+                body: JSON.stringify({ action: 'delete', userId }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to remove');
+            toast(`${userName} removed`);
+            AdminCtrl.team();
+        } catch(err) {
+            toast(err.message, 'error');
+        }
+    },
+
+    _togglePw(id) {
+        const inp = document.getElementById(id);
+        inp.type = inp.type === 'password' ? 'text' : 'password';
     }
 };
 
