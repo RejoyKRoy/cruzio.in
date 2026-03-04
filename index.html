@@ -659,6 +659,7 @@ const S = {
     car: null,           // selected car for booking
     dates: { s: null, e: null },
     allCars: [],
+    settings: {},        // loaded from app_settings table
 };
 
 // ────────────────────────────────────────────────
@@ -668,6 +669,22 @@ const S = {
 //  EMAIL — Brevo Transactional API
 // ────────────────────────────────────────────────
 const Email = {
+
+    // Returns notification email list from live settings (global or partner override)
+    _notifyEmails() {
+        const global = S.settings.global?.notify_emails;
+        if (global) return global.split(',').map(e => e.trim()).filter(Boolean);
+        return CFG.ADMIN_EMAILS || [];
+    },
+
+    // Returns notify emails for a specific car — checks partner settings first
+    _notifyEmailsForCar(carOwnerId) {
+        if (carOwnerId) {
+            const ps = S.settings['partner_' + carOwnerId];
+            if (ps?.notify_emails) return ps.notify_emails.split(',').map(e => e.trim()).filter(Boolean);
+        }
+        return Email._notifyEmails();
+    },
 
     // Core send — calls Supabase Edge Function (Brevo key is server-side only)
     // Fire-and-forget: never blocks the UI, failures are logged only
@@ -771,9 +788,10 @@ const Email = {
 
     // ── Admin: new booking request ─────────────────
     adminNewBooking(b, total) {
-        if (!CFG.ADMIN_EMAILS || !CFG.ADMIN_EMAILS.length) return;
+        const emails = Email._notifyEmailsForCar(b.car_owner_id || b.owner_id);
+        if (!emails.length) return;
         return Email.send({
-            to: CFG.ADMIN_EMAILS, toName: 'Cruzio Admin',
+            to: emails, toName: 'Cruzio Admin',
             subject: `🔔 New Booking — ${b.car_name} (${b.customer_name})`,
             html: Email._wrap(`
                 <div style="display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:.06em;margin-bottom:20px">🆕 NEW BOOKING REQUEST</div>
@@ -800,13 +818,13 @@ const Email = {
 
     // ── Admin: booking status changed ─────────────
     adminBookingUpdated(b, newStatus) {
-        if (!CFG.ADMIN_EMAILS || !CFG.ADMIN_EMAILS.length) return;
+        if (!Email._notifyEmails().length) return;
         const isApproved = newStatus === 'approved';
         const isRejected = newStatus === 'rejected';
         const statusLabel = isApproved ? '✅ APPROVED' : isRejected ? '❌ REJECTED' : '🔄 REVERTED TO PENDING';
         const statusColor = isApproved ? '#22c55e' : isRejected ? '#ef4444' : '#f59e0b';
         return Email.send({
-            to: CFG.ADMIN_EMAILS, toName: 'Cruzio Admin',
+            to: Email._notifyEmails(), toName: 'Cruzio Admin',
             subject: `📝 Booking ${newStatus.toUpperCase()} — ${b.car_name} (${b.customer_name})`,
             html: Email._wrap(`
                 <div style="display:inline-block;background:rgba(107,107,114,.15);border:1px solid rgba(107,107,114,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#aaa;letter-spacing:.06em;margin-bottom:20px">BOOKING STATUS UPDATE</div>
@@ -830,9 +848,9 @@ const Email = {
 
     // ── Admin: new partner inquiry ─────────────────
     adminNewPartnerInquiry(p) {
-        if (!CFG.ADMIN_EMAILS || !CFG.ADMIN_EMAILS.length) return;
+        if (!Email._notifyEmails().length) return;
         return Email.send({
-            to: CFG.ADMIN_EMAILS, toName: 'Cruzio Admin',
+            to: Email._notifyEmails(), toName: 'Cruzio Admin',
             subject: `🚘 New Partner Inquiry — ${p.name}`,
             html: Email._wrap(`
                 <div style="display:inline-block;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#60a5fa;letter-spacing:.06em;margin-bottom:20px">🚘 PARTNER INQUIRY</div>
@@ -1005,6 +1023,14 @@ const Auth = {
             const { data } = await sb.from('profiles').select('*').eq('id', S.user.id).single();
             S.profile = data;
         }
+        // Load all app settings (global + all partner-specific)
+        try {
+            const { data: allSettings } = await sb.from('app_settings').select('*');
+            (allSettings || []).forEach(row => {
+                if (row.id === 'global') S.settings.global = row;
+                else S.settings['partner_' + row.id] = row;
+            });
+        } catch(_) {}
         Auth.renderNav();
     },
 
@@ -1025,7 +1051,7 @@ const Auth = {
                         <div style="padding:10px 14px;border-bottom:1px solid var(--border)">
                             <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">${esc(S.profile?.role || 'user')}</div>
                         </div>
-                        ${S.profile?.role === 'admin' ? `<a href="#" onclick="Router.go('admin')" style="display:block;padding:10px 14px;font-size:13px;text-decoration:none;color:var(--fg);transition:background .15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">Admin Dashboard</a>` : ''}
+                        ${['admin','staff','partner'].includes(S.profile?.role) ? `<a href="#" onclick="Router.go('admin')" style="display:block;padding:10px 14px;font-size:13px;text-decoration:none;color:var(--fg);transition:background .15s" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">Dashboard</a>` : ''}
                         <button onclick="Auth.logout()" style="width:100%;text-align:left;padding:10px 14px;font-size:13px;color:var(--red);background:none;border:none;cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(239,68,68,.08)'" onmouseout="this.style.background=''">Logout</button>
                     </div>
                 </div>`;
@@ -1051,7 +1077,7 @@ const Auth = {
         Auth.renderNav();
         Modals.close('login-modal');
         toast('Welcome back!');
-        if (S.profile?.role === 'admin') Router.go('admin');
+        if (['admin','staff','partner'].includes(S.profile?.role)) Router.go('admin');
     },
 
     async logout() {
@@ -1085,7 +1111,8 @@ const Router = {
         const wa = document.getElementById('wa-float');
 
         if (view === 'admin') {
-            if (!S.user || S.profile?.role !== 'admin') {
+            const allowedRoles = ['admin', 'staff', 'partner'];
+            if (!S.user || !allowedRoles.includes(S.profile?.role)) {
                 Modals.open('login-modal');
                 return Router.go('home');
             }
@@ -1533,7 +1560,12 @@ const Views = {
 
                 <div style="font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:0 4px;margin-bottom:6px">Management</div>
                 <nav style="flex:1;display:flex;flex-direction:column;gap:2px" id="sidebar-nav">
-                    ${[['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['team','👥','Team & Access']].map(([id,ic,lb]) => `
+                    ${(() => {
+                        const r = S.profile?.role;
+                        if (r === 'admin')   return [['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['team','👥','Team & Access'],['settings','⚙️','Settings']];
+                        if (r === 'staff')   return [['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['settings','⚙️','Settings']];
+                        /* partner */        return [['mycars','🚗','My Cars'],['earnings','💰','Earnings'],['copartners','👥','Co-Partners'],['settings','⚙️','Settings']];
+                    })().map(([id,ic,lb]) => `
                         <button class="stab" id="stab-${id}" onclick="AdminCtrl.tab('${id}')">${ic} ${lb}</button>
                     `).join('')}
                 </nav>
@@ -1788,7 +1820,11 @@ const Booking = {
                 (msg ? `📝 *Note:* ${msg}\n\n` : '\n') +
                 `Please confirm my slot. Thank you!`
             );
-            document.getElementById('bk-wa-link').href = 'https://wa.me/15558600840?text=' + waMsg;
+            // Use partner's WA if car is partner-owned and they set one, else global, else default
+            const carOwnerId = S.car?.owner_id;
+            const partnerWA  = carOwnerId && S.settings['partner_' + carOwnerId]?.booking_wa;
+            const waNum      = (partnerWA || S.settings.global?.booking_wa || '919605370108').replace(/\D/g,'');
+            document.getElementById('bk-wa-link').href = 'https://wa.me/' + waNum + '?text=' + waMsg;
 
             // 4. Success summary
             document.getElementById('bk-success-summary').innerHTML = `
@@ -2000,7 +2036,11 @@ function toggleCarLive() {
 //  ADMIN CONTROLLER
 // ────────────────────────────────────────────────
 const AdminCtrl = {
-    init() { AdminCtrl.tab('bookings'); },
+    init() {
+        const initRole = S.profile?.role;
+        if (initRole === 'partner') AdminCtrl.tab('mycars');
+        else AdminCtrl.tab('bookings');
+    },
 
     tab(name) {
         document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
@@ -2008,10 +2048,17 @@ const AdminCtrl = {
         if (active) active.classList.add('active');
         const c = document.getElementById('admin-content');
         c.innerHTML = loading();
-        if (name === 'bookings')   AdminCtrl.bookings();
-        if (name === 'cars')       AdminCtrl.fleet();
-        if (name === 'inquiries')  AdminCtrl.inquiries();
-        if (name === 'team')       AdminCtrl.team();
+        const role = S.profile?.role;
+        // Admin & Staff tabs
+        if (name === 'bookings')   { ['admin','staff'].includes(role)  ? AdminCtrl.bookings()   : AdminCtrl._accessDenied(); return; }
+        if (name === 'cars')       { ['admin','staff'].includes(role)  ? AdminCtrl.fleet()      : AdminCtrl._accessDenied(); return; }
+        if (name === 'inquiries')  { ['admin','staff'].includes(role)  ? AdminCtrl.inquiries()  : AdminCtrl._accessDenied(); return; }
+        if (name === 'team')       { role === 'admin'                  ? AdminCtrl.team()       : AdminCtrl._accessDenied(); return; }
+        // Partner tabs
+        if (name === 'mycars')     { role === 'partner'                ? AdminCtrl.myCars()     : AdminCtrl._accessDenied(); return; }
+        if (name === 'earnings')   { role === 'partner'                ? AdminCtrl.earnings()   : AdminCtrl._accessDenied(); return; }
+        if (name === 'copartners') { role === 'partner'                ? AdminCtrl.coPartners() : AdminCtrl._accessDenied(); return; }
+        if (name === 'settings')   { AdminCtrl.settings(); return; }
     },
 
     // ── BOOKINGS ──
@@ -2085,6 +2132,7 @@ const AdminCtrl = {
                         <div style="display:flex;gap:6px">
                             <button class="btn btn-success" onclick="AdminCtrl.updateBooking('${esc(b.id)}','approved')">✓ Approve</button>
                             <button class="btn btn-danger" onclick="AdminCtrl.updateBooking('${esc(b.id)}','rejected')">✕ Reject</button>
+                            ${S.profile?.role === 'admin' ? `<button onclick="AdminCtrl.deleteBooking('${esc(b.id)}')" class="btn btn-danger btn-sm" title="Delete booking permanently">🗑</button>` : ''}
                         </div>
                     ` : ''}
                     ${b.status !== 'pending' ? `<button class="btn btn-ghost btn-sm" onclick="AdminCtrl.updateBooking('${esc(b.id)}','pending')">Revert to Pending</button>` : ''}
@@ -2157,6 +2205,15 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         AdminCtrl.bookings();
     },
 
+    _accessDenied() {
+        document.getElementById('admin-content').innerHTML = `
+            <div style="text-align:center;padding:80px 20px;color:var(--muted)">
+                <div style="font-size:40px;margin-bottom:12px">🔒</div>
+                <p class="font-bold text-lg">Access Restricted</p>
+                <p class="text-sm mt-2">Your role doesn't have permission to view this section.</p>
+            </div>`;
+    },
+
     // ── FLEET ──
     async fleet() {
         const { data } = await sb.from('cars').select('*').order('created_at', { ascending: false });
@@ -2191,12 +2248,13 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                                 <span class="badge ${car.is_approved ? 'badge-live' : 'badge-hidden'}">${car.is_approved ? 'LIVE' : 'HIDDEN'}</span>
                             </div>
                             <div class="font-display font-bold mb-3" style="color:var(--accent)">${fmtCur(car.price_per_day)}/day</div>
-                            <div style="display:flex;gap:8px">
-                                <button onclick="AdminCtrl.openCarForm('${esc(car.id)}')" class="btn btn-ghost btn-sm" style="flex:1">Edit</button>
+                            <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                <button onclick="AdminCtrl.openCarForm('${esc(car.id)}')" class="btn btn-ghost btn-sm" style="flex:1">✏️ Edit</button>
                                 <button onclick="AdminCtrl.toggleCar('${esc(car.id)}',${!car.is_approved})"
                                     class="btn btn-sm" style="flex:1;background:${car.is_approved?'rgba(239,68,68,.1)':'rgba(34,197,94,.1)'};color:${car.is_approved?'var(--red)':'var(--green)'};border:1px solid ${car.is_approved?'rgba(239,68,68,.25)':'rgba(34,197,94,.25)'}">
                                     ${car.is_approved ? 'Hide' : 'Publish'}
                                 </button>
+                                ${S.profile?.role === 'admin' ? `<button onclick="AdminCtrl.deleteCar('${esc(car.id)}','${esc(car.name)}')" class="btn btn-danger btn-sm">🗑</button>` : ''}
                             </div>
                         </div>
                     </div>`;
@@ -2283,6 +2341,11 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                 if (error) throw error;
                 toast('Car updated!');
             } else {
+                // Assign owner for partner-added cars
+                if (S.profile?.role === 'partner') {
+                    carData.owner_id   = S.user.id;
+                    carData.owner_name = S.profile?.full_name || S.user?.email || '';
+                }
                 const { error } = await sb.from('cars').insert([carData]);
                 if (error) throw error;
                 toast('Car added!');
@@ -2332,6 +2395,7 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                                 <div style="display:flex;gap:6px;align-items:flex-start">
                                     <a href="tel:${esc(i.phone)}" class="btn btn-ghost btn-sm" style="text-decoration:none">📞 Call</a>
                                     <a href="https://wa.me/91${i.phone.replace(/\D/g,'').replace(/^91/,'')}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">📱 WhatsApp</a>
+                            ${S.profile?.role === 'admin' ? `<button onclick="AdminCtrl.deleteInquiry('${esc(i.id)}')" class="btn btn-danger btn-sm">🗑</button>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -2459,7 +2523,6 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                             <select id="sf-role" class="inp">
                                 <option value="staff">Staff</option>
                                 <option value="partner">Partner</option>
-                                <option value="admin">Admin</option>
                             </select>
                         </div>
                     </div>
@@ -2493,22 +2556,39 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         if (!name)               return toast('Name is required.', 'error');
         if (!email.includes('@'))return toast('Valid email is required.', 'error');
         if (pass.length < 8)     return toast('Password must be at least 8 characters.', 'error');
+        // Admin accounts can only be created via SQL — block at UI level too
+        if (role === 'admin')    return toast('Admin accounts must be created via Supabase SQL editor.', 'error');
 
         setBtn('sf-submit', `<span class="spinner"></span> Creating...`, true);
 
         try {
+            const token = await getToken();
             const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': CFG.SB_KEY,
+                    'Authorization': `Bearer ${token}`,
+                },
                 body: JSON.stringify({ action: 'create', email, password: pass, full_name: name, phone: phone || null, role }),
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to create user');
+
+            // Always try to parse JSON — even error responses have details
+            let data = {};
+            try { data = await res.json(); } catch(_) {}
+
+            if (!res.ok) {
+                // Surface the real error from the Edge Function
+                const msg = data.error || data.message || data.detail || `Server error ${res.status}`;
+                throw new Error(msg);
+            }
+
             document.getElementById('staff-modal').remove();
             toast(`✓ ${name} added successfully`);
             AdminCtrl.team();
         } catch(err) {
-            toast(err.message, 'error');
+            console.error('[createStaff]', err);
+            toast(err.message || 'Failed to create user — check browser console for details.', 'error');
             setBtn('sf-submit', 'Create Login', false);
         }
     },
@@ -2533,7 +2613,7 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                             <select id="es-role" class="inp">
                                 <option value="staff" ${p.role==='staff'?'selected':''}>Staff</option>
                                 <option value="partner" ${p.role==='partner'?'selected':''}>Partner</option>
-                                <option value="admin" ${p.role==='admin'?'selected':''}>Admin</option>
+                                ${p.role==='admin' ? '<option value="admin" selected>Admin (SQL-managed)</option>' : ''}
                             </select>
                         </div>
                     </div>
@@ -2765,6 +2845,502 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
     _togglePw(id) {
         const inp = document.getElementById(id);
         inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+,
+
+    // ════════════════════════════════════════════════════
+    // DELETE METHODS (admin only)
+    // ════════════════════════════════════════════════════
+
+    async deleteCar(id, name) {
+        if (S.profile?.role !== 'admin') return toast('Admin access required', 'error');
+        if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+        const { error } = await sb.from('cars').delete().eq('id', id);
+        if (error) return toast('Delete failed: ' + error.message, 'error');
+        toast(`🗑 "${name}" deleted`);
+        AdminCtrl.fleet();
+    },
+
+    async deleteBooking(id) {
+        if (S.profile?.role !== 'admin') return toast('Admin access required', 'error');
+        if (!confirm('Permanently delete this booking? This cannot be undone.')) return;
+        const { error } = await sb.from('bookings').delete().eq('id', id);
+        if (error) return toast('Delete failed: ' + error.message, 'error');
+        toast('🗑 Booking deleted');
+        AdminCtrl.bookings();
+    },
+
+    async deleteInquiry(id) {
+        if (S.profile?.role !== 'admin') return toast('Admin access required', 'error');
+        if (!confirm('Delete this inquiry? This cannot be undone.')) return;
+        const { error } = await sb.from('partner_inquiries').delete().eq('id', id);
+        if (error) return toast('Delete failed: ' + error.message, 'error');
+        toast('🗑 Inquiry deleted');
+        AdminCtrl.inquiries();
+    },
+
+    // ════════════════════════════════════════════════════
+    // PARTNER: MY CARS
+    // ════════════════════════════════════════════════════
+
+    async myCars() {
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+
+        // Get cars owned by this partner OR shared via co_partners
+        const uid = S.user.id;
+        const { data: ownedCars }  = await sb.from('cars').select('*').eq('owner_id', uid).order('created_at', { ascending: false });
+        const { data: coAccess }   = await sb.from('co_partners').select('car_id').eq('user_id', uid);
+        const coCarIds = (coAccess || []).map(r => r.car_id);
+        const { data: coCars }     = coCarIds.length
+            ? await sb.from('cars').select('*').in('id', coCarIds)
+            : Promise.resolve({ data: [] });
+
+        const owned = ownedCars || [];
+        const co    = (coCars || []).filter(c => !owned.find(o => o.id === c.id));
+        const all   = [...owned, ...co];
+
+        c.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 class="font-display text-2xl font-extrabold">My Cars</h2>
+                    <p class="text-sm mt-1" style="color:var(--muted)">${owned.length} owned · ${co.length} shared with you</p>
+                </div>
+                <button onclick="AdminCtrl.openCarForm()" class="btn btn-primary">+ Add Car</button>
+            </div>
+            ${!all.length ? `
+                <div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                    <div style="font-size:40px;margin-bottom:12px">🚗</div>
+                    <p class="font-semibold">No cars yet</p>
+                    <p class="text-sm mt-1">Click "+ Add Car" to list your first vehicle.</p>
+                </div>` : `
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${all.map(car => {
+                    const isOwner = car.owner_id === uid;
+                    const imgs = (Array.isArray(car.images) && car.images.length) ? car.images : (car.image_url ? [car.image_url] : []);
+                    const cover = imgs[0] || '';
+                    const fallback = `https://placehold.co/400x150/111113/f59e0b?text=${encodeURIComponent(car.name)}`;
+                    return `
+                    <div class="card" style="overflow:hidden">
+                        <div style="position:relative">
+                            <img src="${esc(cover)}" alt="${esc(car.name)}" style="width:100%;height:150px;object-fit:cover;display:block" onerror="this.src='${fallback}'">
+                            <span style="position:absolute;top:8px;left:8px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:${isOwner?'rgba(245,158,11,.9)':'rgba(99,102,241,.9)'};color:#fff;text-transform:uppercase">${isOwner?'Owner':'Co-Partner'}</span>
+                        </div>
+                        <div style="padding:14px">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:6px">
+                                <div>
+                                    <div class="font-display font-bold">${esc(car.name)}</div>
+                                    <div class="text-xs" style="color:var(--muted)">${esc(car.category)} ${car.seats?'· '+car.seats+' seats':''}</div>
+                                </div>
+                                <span class="badge ${car.is_approved?'badge-live':'badge-hidden'}">${car.is_approved?'LIVE':'HIDDEN'}</span>
+                            </div>
+                            <div class="font-display font-bold mb-3" style="color:var(--accent)">${fmtCur(car.price_per_day)}/day</div>
+                            <div style="display:flex;gap:8px">
+                                <button onclick="AdminCtrl.openCarForm('${esc(car.id)}')" class="btn btn-ghost btn-sm" style="flex:1">✏️ Edit</button>
+                                <button onclick="AdminCtrl.toggleCar('${esc(car.id)}',${!car.is_approved})"
+                                    class="btn btn-sm" style="flex:1;background:${car.is_approved?'rgba(239,68,68,.1)':'rgba(34,197,94,.1)'};color:${car.is_approved?'var(--red)':'var(--green)'};border:1px solid ${car.is_approved?'rgba(239,68,68,.25)':'rgba(34,197,94,.25)'}">
+                                    ${car.is_approved ? 'Hide' : 'Publish'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`}
+        `;
+    },
+
+    // ════════════════════════════════════════════════════
+    // PARTNER: EARNINGS
+    // ════════════════════════════════════════════════════
+
+    async earnings() {
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+
+        const uid = S.user.id;
+        // Get all cars this partner owns or co-manages
+        const { data: ownedCars } = await sb.from('cars').select('id,name,price_per_day').eq('owner_id', uid);
+        const { data: coAccess }  = await sb.from('co_partners').select('car_id').eq('user_id', uid);
+        const coCarIds = (coAccess || []).map(r => r.car_id);
+        const { data: coCars } = coCarIds.length
+            ? await sb.from('cars').select('id,name,price_per_day').in('id', coCarIds)
+            : Promise.resolve({ data: [] });
+
+        const allCars = [...(ownedCars||[]), ...(coCars||[]).filter(c => !(ownedCars||[]).find(o=>o.id===c.id))];
+        const allCarIds = allCars.map(c => c.id);
+
+        // Fetch approved bookings for those cars
+        let bookings = [];
+        if (allCarIds.length) {
+            const { data } = await sb.from('bookings').select('*')
+                .in('car_id', allCarIds).eq('status', 'approved')
+                .order('created_at', { ascending: false });
+            bookings = data || [];
+        }
+
+        const totalEarnings = bookings.reduce((sum, b) => sum + (b.estimated_price || 0), 0);
+        const thisMonth = new Date(); thisMonth.setDate(1); thisMonth.setHours(0,0,0,0);
+        const monthlyEarnings = bookings
+            .filter(b => new Date(b.created_at) >= thisMonth)
+            .reduce((sum, b) => sum + (b.estimated_price || 0), 0);
+
+        // Per-car breakdown
+        const carEarnings = allCars.map(car => {
+            const carBookings = bookings.filter(b => b.car_id === car.id);
+            return { ...car, bookingCount: carBookings.length, total: carBookings.reduce((s,b) => s+(b.estimated_price||0), 0) };
+        }).sort((a,b) => b.total - a.total);
+
+        c.innerHTML = `
+            <div style="margin-bottom:24px">
+                <h2 class="font-display text-2xl font-extrabold">Earnings</h2>
+                <p class="text-sm mt-1" style="color:var(--muted)">From approved bookings across your fleet</p>
+            </div>
+
+            <!-- Summary cards -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px">
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center">
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Total Earnings</div>
+                    <div class="font-display font-extrabold text-2xl" style="color:var(--accent)">${fmtCur(totalEarnings)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:4px">${bookings.length} booking${bookings.length!==1?'s':''}</div>
+                </div>
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center">
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">This Month</div>
+                    <div class="font-display font-extrabold text-2xl" style="color:var(--green)">${fmtCur(monthlyEarnings)}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:4px">${bookings.filter(b=>new Date(b.created_at)>=thisMonth).length} booking${bookings.filter(b=>new Date(b.created_at)>=thisMonth).length!==1?'s':''}</div>
+                </div>
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center">
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Fleet Size</div>
+                    <div class="font-display font-extrabold text-2xl">${allCars.length}</div>
+                    <div style="font-size:12px;color:var(--muted);margin-top:4px">active cars</div>
+                </div>
+            </div>
+
+            <!-- Per-car breakdown -->
+            ${carEarnings.length ? `
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Earnings by Car</div>
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:28px">
+                ${carEarnings.map(car => `
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:140px">
+                        <div class="font-semibold">${esc(car.name)}</div>
+                        <div style="font-size:12px;color:var(--muted)">${car.bookingCount} approved booking${car.bookingCount!==1?'s':''}</div>
+                    </div>
+                    <div style="font-size:11px;color:var(--muted)">${fmtCur(car.price_per_day)}/day</div>
+                    <div class="font-display font-bold" style="color:var(--accent);font-size:18px">${fmtCur(car.total)}</div>
+                </div>`).join('')}
+            </div>` : ''}
+
+            <!-- Bookings list -->
+            ${bookings.length ? `
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px">Recent Bookings</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+                ${bookings.slice(0,20).map(b => `
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+                    <div style="flex:1;min-width:140px">
+                        <div class="font-semibold text-sm">${esc(b.customer_name)}</div>
+                        <div style="font-size:11px;color:var(--muted)">${esc(b.car_name)} · ${b.start_date} → ${b.end_date}</div>
+                    </div>
+                    <div style="font-size:12px;color:var(--muted)">${new Date(b.created_at).toLocaleDateString('en-IN')}</div>
+                    <div class="font-bold" style="color:var(--green)">${fmtCur(b.estimated_price)}</div>
+                </div>`).join('')}
+            </div>` : `
+            <div style="text-align:center;padding:40px;border:1px dashed var(--border);border-radius:14px;color:var(--muted)">
+                <div style="font-size:32px;margin-bottom:8px">💰</div>
+                <p>No approved bookings yet. Earnings will appear here once bookings are confirmed.</p>
+            </div>`}
+        `;
+    },
+
+    // ════════════════════════════════════════════════════
+    // PARTNER: CO-PARTNERS
+    // ════════════════════════════════════════════════════
+
+    async coPartners() {
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+
+        const uid = S.user.id;
+        const { data: ownedCars } = await sb.from('cars').select('id,name').eq('owner_id', uid);
+        const owned = ownedCars || [];
+
+        // Get co-partners for each owned car with their profile info
+        let coList = [];
+        if (owned.length) {
+            const { data } = await sb.from('co_partners')
+                .select('*, profiles(full_name, email, phone, role)')
+                .in('car_id', owned.map(c=>c.id));
+            coList = data || [];
+        }
+
+        c.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+                <div>
+                    <h2 class="font-display text-2xl font-extrabold">Co-Partners</h2>
+                    <p class="text-sm mt-1" style="color:var(--muted)">People who help manage your fleet</p>
+                </div>
+                ${owned.length ? `<button onclick="AdminCtrl.openAddCoPartner()" class="btn btn-primary">+ Add Co-Partner</button>` : ''}
+            </div>
+
+            ${!owned.length ? `
+            <div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                <div style="font-size:40px;margin-bottom:12px">🚗</div>
+                <p>You need to own at least one car to add co-partners.</p>
+            </div>` : !coList.length ? `
+            <div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)">
+                <div style="font-size:40px;margin-bottom:12px">👥</div>
+                <p class="font-semibold">No co-partners yet</p>
+                <p class="text-sm mt-1">Add team members who can manage your vehicles.</p>
+            </div>` : `
+            <div style="display:flex;flex-direction:column;gap:10px">
+                ${coList.map(cp => {
+                    const car = owned.find(c => c.id === cp.car_id);
+                    const p   = cp.profiles || {};
+                    return `
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+                        <div style="width:40px;height:40px;border-radius:50%;background:rgba(99,102,241,.15);color:#818cf8;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0">${esc((p.full_name||p.email||'?').slice(0,2).toUpperCase())}</div>
+                        <div style="flex:1;min-width:0">
+                            <div class="font-semibold">${esc(p.full_name || p.email || cp.user_id)}</div>
+                            <div style="font-size:12px;color:var(--muted)">${p.email?esc(p.email)+' · ':''}<span style="color:var(--accent)">Managing: ${esc(car?.name||'Unknown car')}</span></div>
+                        </div>
+                        <button onclick="AdminCtrl.removeCoPartner('${esc(cp.id)}','${esc(p.full_name||p.email||'this person')}')" class="btn btn-danger btn-sm">Remove</button>
+                    </div>`;
+                }).join('')}
+            </div>`}
+        `;
+    },
+
+    openAddCoPartner() {
+        const uid = S.user.id;
+        sb.from('cars').select('id,name').eq('owner_id', uid).then(({ data: cars }) => {
+            sb.from('profiles').select('id,full_name,email,role').neq('id', uid).then(({ data: profiles }) => {
+                const html = `
+                <div class="modal-bg" id="cp-modal" style="display:flex" onclick="if(event.target===this)this.remove()">
+                    <div class="modal-box" style="max-width:420px">
+                        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                            <h2 class="font-display text-xl font-bold">Add Co-Partner</h2>
+                            <button onclick="document.getElementById('cp-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+                        </div>
+                        <div class="p-5 space-y-4">
+                            <div>
+                                <label class="lbl">SELECT CAR *</label>
+                                <select id="cp-car" class="inp">
+                                    ${(cars||[]).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="lbl">SELECT TEAM MEMBER *</label>
+                                <select id="cp-user" class="inp">
+                                    <option value="">— Choose a person —</option>
+                                    ${(profiles||[]).map(p => `<option value="${esc(p.id)}">${esc(p.full_name||p.email)} (${esc(p.role||'staff')})</option>`).join('')}
+                                </select>
+                                <p class="text-xs mt-1" style="color:var(--muted)">Only existing team members appear here. Add them via Team & Access first if needed.</p>
+                            </div>
+                            <div style="display:flex;gap:10px;padding-top:4px">
+                                <button onclick="document.getElementById('cp-modal').remove()" class="btn btn-ghost" style="flex:1">Cancel</button>
+                                <button onclick="AdminCtrl.saveCoPartner()" id="cp-submit" class="btn btn-primary" style="flex:1">Add Co-Partner</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+                document.body.insertAdjacentHTML('beforeend', html);
+                setTimeout(() => document.getElementById('cp-modal').classList.add('show'), 10);
+            });
+        });
+    },
+
+    async saveCoPartner() {
+        const carId  = document.getElementById('cp-car').value;
+        const userId = document.getElementById('cp-user').value;
+        if (!carId || !userId) return toast('Please select both a car and a team member.', 'error');
+
+        setBtn('cp-submit', `<span class="spinner"></span> Adding...`, true);
+        const { error } = await sb.from('co_partners').insert({ car_id: carId, user_id: userId, added_by: S.user.id });
+        if (error) {
+            toast(error.message.includes('unique') ? 'This person already manages that car.' : 'Error: ' + error.message, 'error');
+            setBtn('cp-submit', 'Add Co-Partner', false);
+            return;
+        }
+        document.getElementById('cp-modal').remove();
+        toast('✓ Co-partner added');
+        AdminCtrl.coPartners();
+    },
+
+    async removeCoPartner(id, name) {
+        if (!confirm(`Remove ${name} as a co-partner?`)) return;
+        const { error } = await sb.from('co_partners').delete().eq('id', id);
+        if (error) return toast('Error: ' + error.message, 'error');
+        toast(`${name} removed`);
+        AdminCtrl.coPartners();
+    },
+
+    // ════════════════════════════════════════════════════
+    // SETTINGS (all roles — own profile + password)
+    // ════════════════════════════════════════════════════
+
+    async settings() {
+        const p    = S.profile || {};
+        const role = p.role;
+        const c    = document.getElementById('admin-content');
+        c.innerHTML = '<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>';
+
+        // Refresh settings
+        try {
+            const { data: allSettings } = await sb.from('app_settings').select('*');
+            (allSettings || []).forEach(row => {
+                if (row.id === 'global') S.settings.global = row;
+                else S.settings['partner_' + row.id] = row;
+            });
+        } catch(_) {}
+
+        const gs = S.settings.global || {};
+        const ps = S.settings['partner_' + (S.user?.id || '')] || {};
+        const isAdmin = role === 'admin';
+        const isStaff = role === 'staff';
+
+        let partnerCars = [];
+        if (role === 'partner') {
+            const { data } = await sb.from('cars').select('id,name').eq('owner_id', S.user.id);
+            partnerCars = data || [];
+        }
+
+        const iBtn = (msg) => `<button type="button" tabindex="-1" onclick="AdminCtrl._tip(this,${JSON.stringify(msg)})" style="width:18px;height:18px;border-radius:50%;background:rgba(99,102,241,.15);border:1px solid rgba(99,102,241,.3);color:#818cf8;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;margin-left:6px">i</button>`;
+        const lbl = (text, tip) => `<div style="display:flex;align-items:center;margin-bottom:6px"><label class="lbl" style="margin:0">${text}</label>${iBtn(tip)}</div>`;
+
+        let html = `<div style="max-width:580px">
+            <h2 class="font-display text-2xl font-extrabold mb-2">Settings</h2>
+            <p class="text-sm mb-6" style="color:var(--muted)">Configure notifications, contact points and your account.</p>`;
+
+        // ── GLOBAL NOTIFICATIONS (admin/staff) ────────────────────────────
+        if (isAdmin || isStaff) {
+            html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <div style="font-size:13px;font-weight:700;color:var(--fg)">📣 Booking Notifications</div>
+                    ${!isAdmin ? '<span style="font-size:10px;padding:2px 8px;border-radius:20px;background:rgba(99,102,241,.1);color:#818cf8;font-weight:700">View only</span>' : ''}
+                </div>
+                <p class="text-xs mb-4" style="color:var(--muted)">Control where booking alerts are sent when a customer submits a request.</p>
+                <div class="space-y-4">
+                    <div>
+                        ${lbl('BOOKING WHATSAPP NUMBER', 'This is the WhatsApp number shown on the booking confirmation screen. When a customer taps "WhatsApp Us", their pre-filled booking message goes here. Change it to any active WhatsApp business number.')}
+                        <div style="position:relative">
+                            <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px">+</span>
+                            <input id="gs-wa" type="tel" class="inp" style="padding-left:26px" value="${esc(gs.booking_wa||'919605370108')}" placeholder="919605370108" ${!isAdmin ? 'readonly style="opacity:.6;padding-left:26px"' : ''}>
+                        </div>
+                        <p class="text-xs mt-1" style="color:var(--muted)">Country code + number, no spaces or + (e.g. 919605370108)</p>
+                    </div>
+                    <div>
+                        ${lbl('BOOKING NOTIFICATION EMAILS', 'These email addresses receive an alert every time a new booking is submitted, and again when a booking is approved or rejected. Separate multiple addresses with commas.')}
+                        <input id="gs-emails" type="text" class="inp" value="${esc(gs.notify_emails||'')}" placeholder="admin@cruzio.in, team@cruzio.in" ${!isAdmin ? 'readonly style="opacity:.6"' : ''}>
+                        <p class="text-xs mt-1" style="color:var(--muted)">Comma-separated. Receives: new booking alerts + approval/rejection confirmations.</p>
+                    </div>
+                    ${isAdmin ? '<button onclick="AdminCtrl.saveGlobalSettings()" id="gs-save" class="btn btn-primary" style="width:100%">💾 Save Notification Settings</button>' : ''}
+                </div>
+            </div>`;
+        }
+
+        // ── PARTNER NOTIFICATIONS ─────────────────────────────────────────
+        if (role === 'partner') {
+            html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+                <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:4px">📣 My Cars — Booking Notifications</div>
+                <p class="text-xs mb-4" style="color:var(--muted)">When a customer books one of your listed cars, these settings override Cruzio's global defaults for those bookings specifically.</p>
+                <div class="space-y-4">
+                    <div>
+                        ${lbl('MY WHATSAPP NUMBER', 'When a customer books your car and taps "WhatsApp Us" on the confirmation screen, their message goes to this number — directly to you. Leave blank to use Cruzio\'s main number instead.')}
+                        <div style="position:relative">
+                            <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px">+</span>
+                            <input id="ps-wa" type="tel" class="inp" style="padding-left:26px" value="${esc(ps.booking_wa||'')}" placeholder="919876543210">
+                        </div>
+                        <p class="text-xs mt-1" style="color:var(--muted)">Leave blank to use Cruzio's default number.</p>
+                    </div>
+                    <div>
+                        ${lbl('MY NOTIFICATION EMAILS', 'Booking alerts for your cars go to these emails instead of Cruzio\'s team. Add your own email to get notified directly when someone books your vehicle. Comma-separate for multiple.')}
+                        <input id="ps-emails" type="text" class="inp" value="${esc(ps.notify_emails||'')}" placeholder="you@email.com, partner2@email.com">
+                        <p class="text-xs mt-1" style="color:var(--muted)">Leave blank to use Cruzio's global notification emails.</p>
+                    </div>
+                    ${partnerCars.length ? `<div style="padding:12px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:10px;font-size:12px;color:var(--muted)">🚗 Applies to: <strong style="color:var(--fg)">${partnerCars.map(c=>esc(c.name)).join(', ')}</strong></div>` : ''}
+                    <button onclick="AdminCtrl.savePartnerSettings()" id="ps-save" class="btn btn-primary" style="width:100%">💾 Save My Notification Settings</button>
+                </div>
+            </div>`;
+        }
+
+        // ── PROFILE ───────────────────────────────────────────────────────
+        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:20px">
+            <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:16px">👤 Profile Details</div>
+            <div class="space-y-4">
+                <div>
+                    ${lbl('FULL NAME', 'Your display name shown in the admin dashboard and in email signatures sent to customers.')}
+                    <input id="st-name" type="text" class="inp" value="${esc(p.full_name||'')}" placeholder="Your name">
+                </div>
+                <div>
+                    ${lbl('LOGIN EMAIL', 'The email used to log into this dashboard. Changing it requires verification before it takes effect.')}
+                    <input id="st-email" type="email" class="inp" value="${esc(p.email||S.user?.email||'')}" placeholder="your@email.com">
+                </div>
+                <div>
+                    ${lbl('PHONE NUMBER', 'Your contact number stored in your profile — for internal reference only, not used for automated notifications.')}
+                    <input id="st-phone" type="tel" class="inp" value="${esc(p.phone||'')}" placeholder="+91 98765 43210">
+                </div>
+                <button onclick="AdminCtrl.saveSettings()" id="st-save" class="btn btn-primary" style="width:100%">Save Profile</button>
+            </div>
+        </div>`;
+
+        // ── PASSWORD ──────────────────────────────────────────────────────
+        html += `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px">
+            <div style="font-size:13px;font-weight:700;color:var(--fg);margin-bottom:16px">🔑 Change Password</div>
+            <div class="space-y-4">
+                <div>
+                    ${lbl('NEW PASSWORD', 'At least 8 characters. You will remain logged in after changing it.')}
+                    <div style="position:relative">
+                        <input id="st-pass" type="password" class="inp" placeholder="Min. 8 characters" style="padding-right:44px">
+                        <button type="button" onclick="togglePw('st-pass',this)" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="lbl">CONFIRM PASSWORD</label>
+                    <div style="position:relative">
+                        <input id="st-confirm" type="password" class="inp" placeholder="Repeat password" style="padding-right:44px">
+                        <button type="button" onclick="togglePw('st-confirm',this)" style="position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:var(--muted)">👁</button>
+                    </div>
+                </div>
+                <button onclick="AdminCtrl.savePassword()" id="st-pw-save" class="btn btn-ghost" style="width:100%">Update Password</button>
+            </div>
+        </div></div>`;
+
+        c.innerHTML = html;
+    },
+
+
+    async saveSettings() {
+        const name  = document.getElementById('st-name').value.trim();
+        const email = document.getElementById('st-email').value.trim();
+        const phone = document.getElementById('st-phone').value.trim();
+        setBtn('st-save', `<span class="spinner"></span> Saving...`, true);
+        try {
+            await sb.from('profiles').update({ full_name: name, phone: phone||null, email: email||null }).eq('id', S.user.id);
+            if (email && email !== S.user.email) {
+                const { error } = await sb.auth.updateUser({ email });
+                if (error) throw error;
+            }
+            S.profile = { ...S.profile, full_name: name, phone, email };
+            Auth.renderNav();
+            toast('✓ Profile saved');
+        } catch(err) { toast(err.message, 'error'); }
+        setBtn('st-save', 'Save Profile', false);
+    },
+
+    async savePassword() {
+        const pass = document.getElementById('st-pass').value;
+        const conf = document.getElementById('st-confirm').value;
+        if (pass.length < 8) return toast('Password must be at least 8 characters.', 'error');
+        if (pass !== conf)   return toast('Passwords do not match.', 'error');
+        setBtn('st-pw-save', `<span class="spinner"></span> Updating...`, true);
+        try {
+            const { error } = await sb.auth.updateUser({ password: pass });
+            if (error) throw error;
+            document.getElementById('st-pass').value = '';
+            document.getElementById('st-confirm').value = '';
+            toast('✓ Password updated');
+        } catch(err) { toast(err.message, 'error'); }
+        setBtn('st-pw-save', 'Update Password', false);
     }
 };
 
