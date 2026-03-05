@@ -1193,14 +1193,31 @@ const Views = {
         </section>
 
         <!-- STATS BAR -->
-        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)">
+        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)" id="stats-bar">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-                ${[['50+','Premium Cars'],['500+','Happy Clients'],['24/7','Support Available'],['₹0','Hidden Fees']].map(([n,l]) => `
-                    <div>
-                        <div class="font-display font-extrabold text-3xl" style="color:var(--accent)">${n}</div>
-                        <div class="text-sm mt-1" style="color:var(--muted)">${l}</div>
+                <div>
+                    <div class="font-display font-extrabold text-3xl" style="color:var(--accent)" id="stat-cars">50+</div>
+                    <div class="text-sm mt-1" style="color:var(--muted)">Premium Cars</div>
+                </div>
+                <div>
+                    <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+                        <div class="font-display font-extrabold text-3xl" style="color:var(--accent)" id="stat-bookings">
+                            <span style="display:inline-block;width:44px;height:12px;background:linear-gradient(90deg,rgba(245,158,11,.2),rgba(245,158,11,.05));border-radius:6px;animation:pulse 1.2s infinite"></span>
+                        </div>
+                        <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);color:#22c55e;text-transform:uppercase;letter-spacing:.06em">
+                            <span style="width:5px;height:5px;border-radius:50%;background:#22c55e;display:inline-block;animation:pulse 1.5s infinite"></span>LIVE
+                        </span>
                     </div>
-                `).join('')}
+                    <div class="text-sm mt-1" style="color:var(--muted)">Clients Served</div>
+                </div>
+                <div>
+                    <div class="font-display font-extrabold text-3xl" style="color:var(--accent)">24/7</div>
+                    <div class="text-sm mt-1" style="color:var(--muted)">Support Available</div>
+                </div>
+                <div>
+                    <div class="font-display font-extrabold text-3xl" style="color:var(--accent)">₹0</div>
+                    <div class="text-sm mt-1" style="color:var(--muted)">Hidden Fees</div>
+                </div>
             </div>
         </section>
 
@@ -1523,22 +1540,22 @@ const Views = {
                     ${imgs.map((_,i) => `<button class="carousel-dot ${i===0?'active':''}" onclick="Carousel.go('${cid}',${imgs.length},${i},event)"></button>`).join('')}
                 </div>` : ''}
             </div>
-            <div style="padding:18px">
-                <h3 class="font-display font-bold text-lg mb-1">${esc(car.name)}</h3>
-                ${car.description ? `<p class="line-clamp-2 text-sm mb-3" style="color:var(--muted)">${esc(car.description)}</p>` : ''}
+            <div style="padding:16px 18px 18px">
+                <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:4px">
+                    <h3 class="font-display font-bold text-lg" style="line-height:1.2">${esc(car.name)}</h3>
+                </div>
+                ${car.description ? `<p class="line-clamp-2 text-sm mb-3" style="color:var(--muted);line-height:1.5">${esc(car.description)}</p>` : '<div style="height:8px"></div>'}
                 ${car.features && car.features.length ? `
-                    <div class="flex flex-wrap gap-1.5 mb-3">
-                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,4).map(f => `
-                            <span style="font-size:11px;padding:3px 9px;background:var(--surface);border:1px solid var(--border);border-radius:20px;color:var(--muted)">${esc(f.trim())}</span>
-                        `).join('')}
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">
+                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,5).map(f => `<span style="font-size:10px;font-weight:700;padding:3px 9px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);border-radius:20px;color:rgba(245,158,11,.95);letter-spacing:.02em;text-transform:uppercase">${esc(f.trim())}</span>`).join('')}
                     </div>
-                ` : ''}
-                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+                ` : '<div style="height:10px"></div>'}
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
                     <div>
-                        <span class="font-display font-bold text-2xl" style="color:var(--accent)">${fmtCur(car.price_per_day)}</span>
-                        <span class="text-xs" style="color:var(--muted)">/day</span>
+                        <span class="font-display font-extrabold" style="font-size:22px;color:var(--accent)">${fmtCur(car.price_per_day)}</span>
+                        <span style="font-size:12px;color:var(--muted);margin-left:2px">/day</span>
                     </div>
-                    <button class="btn btn-primary btn-sm" style="pointer-events:none">Book Now →</button>
+                    <button class="btn btn-primary btn-sm" style="pointer-events:none;font-size:12px;padding:7px 16px">Book Now →</button>
                 </div>
             </div>
         </div>`;
@@ -1603,6 +1620,9 @@ const Views = {
 // ────────────────────────────────────────────────
 const CarCtrl = {
     async init() {
+        // Fetch live booking count for the stats bar
+        CarCtrl.loadStats();
+
         const { data, error } = await sb.from('cars').select('*').eq('is_approved', true).order('created_at', { ascending: false });
         const grid = document.getElementById('cars-grid');
         if (!grid) return;
@@ -1617,6 +1637,38 @@ const CarCtrl = {
         }
         S.allCars = data;
         grid.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">${data.map(Views.carCard).join('')}</div>`;
+    },
+
+    async loadStats() {
+        try {
+            // Live approved booking count = clients served
+            const { count } = await sb.from('bookings')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'approved');
+            const el = document.getElementById('stat-bookings');
+            if (!el) return;
+            const total = (count || 0);
+            // Animate counter up
+            const display = total > 0 ? total + '+' : '0';
+            let start = 0;
+            const end = total;
+            const dur = 1200;
+            const step = Math.ceil(end / (dur / 16));
+            el.textContent = '0';
+            const tick = () => {
+                start = Math.min(start + step, end);
+                el.textContent = start + (start >= end && end > 0 ? '+' : '');
+                if (start < end) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+
+            // Also update car count
+            const { count: carCount } = await sb.from('cars')
+                .select('*', { count: 'exact', head: true })
+                .eq('is_approved', true);
+            const carEl = document.getElementById('stat-cars');
+            if (carEl && carCount) carEl.textContent = carCount + '+';
+        } catch(_) {}
     },
 
     filter(cat) {
@@ -2570,7 +2622,7 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                     'apikey': CFG.SB_KEY,
                     'Authorization': `Bearer ${token}`,
                 },
-                body: JSON.stringify({ action: 'create', email, password: pass, full_name: name, phone: phone || null, role }),
+                body: JSON.stringify({ callerEmail: S.user?.email, action: 'create', email, password: pass, full_name: name, phone: phone || null, role }),
             });
 
             // Always try to parse JSON — even error responses have details
@@ -2642,8 +2694,8 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         try {
             const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
-                body: JSON.stringify({ action: 'update', userId: id, full_name: name, email: email || undefined, phone: phone || null, role }),
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY },
+                body: JSON.stringify({ callerEmail: S.user?.email, action: 'update', userId: id, full_name: name, email: email || undefined, phone: phone || null, role }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to update');
@@ -2707,8 +2759,8 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         try {
             const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
-                body: JSON.stringify({ action: 'reset_password', userId: id, password: pass }),
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY },
+                body: JSON.stringify({ callerEmail: S.user?.email, action: 'reset_password', userId: id, password: pass }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to reset password');
@@ -2830,8 +2882,8 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         try {
             const res = await fetch(`${CFG.SB_URL}/functions/v1/manage-staff`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY, 'Authorization': `Bearer ${await getToken()}` },
-                body: JSON.stringify({ action: 'delete', userId }),
+                headers: { 'Content-Type': 'application/json', 'apikey': CFG.SB_KEY },
+                body: JSON.stringify({ callerEmail: S.user?.email, action: 'delete', userId }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to remove');
