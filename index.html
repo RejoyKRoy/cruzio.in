@@ -41,8 +41,11 @@
       total_days integer not null,
       estimated_price integer not null,
       message text,
-      booking_ref text,
       status text default 'pending',
+      booking_city text,
+      customer_ip_city text,
+      customer_ip_region text,
+      customer_ip_country text,
       created_at timestamptz default now()
     );
 
@@ -70,9 +73,6 @@
 
     create policy "Anyone can inquire" on partner_inquiries for insert with check (true);
     create policy "Auth read inquiries" on partner_inquiries for select using (auth.role() = 'authenticated');
-
-    -- Add booking_ref to existing bookings table (run if table already exists)
-    alter table bookings add column if not exists booking_ref text;
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     -->
@@ -263,9 +263,100 @@
         .photo-thumb .cover-badge { position:absolute; bottom:4px; left:4px; font-size:9px; font-weight:700; background:var(--accent); color:#000; padding:2px 6px; border-radius:3px; letter-spacing:.04em; }
         .photo-add-btn { aspect-ratio:4/3; border-radius:8px; border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s; color:var(--muted); font-size:12px; gap:6px; background:none; }
         .photo-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+        /* ── City selector ── */
+        .city-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px 5px 10px; border-radius:50px; background:var(--surface); border:1px solid var(--border); font-size:12px; font-weight:600; color:var(--fg); cursor:pointer; transition:all .2s; position:relative; }
+        .city-pill:hover { border-color:var(--accent); color:var(--accent); }
+        .city-dropdown { position:absolute; top:calc(100% + 8px); left:0; min-width:260px; background:var(--card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 40px rgba(0,0,0,.5); z-index:300; padding:8px; max-height:360px; overflow-y:auto; }
+        .city-item { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-radius:8px; cursor:pointer; font-size:13px; transition:background .15s; }
+        .city-item:hover { background:var(--surface); }
+        .city-item.active { background:rgba(245,158,11,.1); color:var(--accent); font-weight:700; }
+        .city-item .city-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.06em; }
+        .city-coming { background:rgba(107,107,114,.12); color:var(--muted); }
+        .city-live { background:rgba(34,197,94,.12); color:var(--green); }
+
+        /* ── Bottom mobile nav ── */
+        .mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; z-index:80; background:var(--card); border-top:1px solid var(--border); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); padding:8px 0 max(8px, env(safe-area-inset-bottom)); }
+        .mobile-bottom-nav a, .mobile-bottom-nav button { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; font-weight:600; color:var(--muted); text-decoration:none; background:none; border:none; cursor:pointer; padding:4px 0; transition:color .2s; letter-spacing:.03em; text-transform:uppercase; }
+        .mobile-bottom-nav a.active, .mobile-bottom-nav button.active { color:var(--accent); }
+        .mobile-bottom-nav a svg, .mobile-bottom-nav button svg { transition:transform .2s; }
+        .mobile-bottom-nav a:active svg, .mobile-bottom-nav button:active svg { transform:scale(.88); }
+        @media (max-width: 767px) {
+            .mobile-bottom-nav { display:flex; }
+            body { padding-bottom: 64px; }
+            .wa-btn { bottom: 80px; right: 16px; width:46px; height:46px; }
+            /* bigger tap targets */
+            .btn { min-height: 44px; }
+            .btn-sm { min-height: 36px; }
+            .chip { min-height: 36px; padding: 6px 14px; }
+            .inp { font-size: 16px !important; } /* prevent iOS zoom */
+            /* full-width modals bottom-sheet on small screens */
+            @media (max-height: 700px) {
+                .modal-box { max-height: 96vh; }
+            }
+            /* car card mobile */
+            .car-card:hover { transform: none; }
+            .carousel-track img { height: 185px; }
+        }
+
+        /* ── Notification toast ── */
+        #notif-prompt { position:fixed; bottom:76px; left:50%; transform:translateX(-50%); z-index:500; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; display:flex; align-items:center; gap:12px; box-shadow:0 16px 40px rgba(0,0,0,.5); max-width:340px; width:calc(100% - 32px); transition:all .4s; opacity:0; pointer-events:none; }
+        #notif-prompt.show { opacity:1; pointer-events:all; }
+        #notif-prompt.hide { opacity:0; transform:translateX(-50%) translateY(20px); }
+
+        /* ── City CTA section ── */
+        .city-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+        .city-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center; cursor:pointer; transition:all .2s; }
+        .city-card:hover { border-color:var(--accent); background:rgba(245,158,11,.04); }
+        .city-card.is-live { border-color:rgba(34,197,94,.3); }
+
+        /* ── Mobile hero improvements ── */
+        @media (max-width: 640px) {
+            #hero-section { min-height: 88vh !important; padding-top: 12px !important; }
+            #hero-section h1 { font-size: clamp(2.4rem, 12vw, 3.5rem) !important; margin-bottom: 16px !important; }
+            #hero-section p { font-size: 15px !important; margin-bottom: 24px !important; }
+            #stats-bar .grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; padding: 28px 16px !important; }
+        }
     </style>
 </head>
 <body>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  NOTIFICATION PROMPT                           -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="notif-prompt">
+    <span style="font-size:24px;flex-shrink:0">🔔</span>
+    <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;margin-bottom:2px">Stay updated</div>
+        <div style="font-size:12px;color:var(--muted)">Get notified when your booking is confirmed</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="PushNotif.grant()" class="btn btn-primary btn-sm">Allow</button>
+        <button onclick="PushNotif.dismiss()" class="btn btn-ghost btn-sm">Later</button>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  MOBILE BOTTOM NAV                             -->
+<!-- ══════════════════════════════════════════════ -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <a href="#home" id="mbn-home" onclick="updateMobileNav('home')">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+        Home
+    </a>
+    <a href="#cars" id="mbn-cars" onclick="updateMobileNav('cars')">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/><rect x="3" y="11" width="18" height="10" rx="2" stroke-width="0"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 17H4a1 1 0 01-1-1v-4l2-5h14l2 5v4a1 1 0 01-1 1h-1m-10 0h6"/></svg>
+        Browse
+    </a>
+    <a href="https://wa.me/919605370108" target="_blank" style="color:#25D366 !important">
+        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp
+    </a>
+    <button onclick="CitySelector.openModal()" id="mbn-city">
+        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span id="mbn-city-lbl">Chennai</span>
+    </button>
+</nav>
 
 <!-- ══════════════════════════════════════════════ -->
 <!--  FLOATING WHATSAPP                             -->
@@ -291,6 +382,15 @@
             <a href="#home" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Home</a>
             <a href="#cars" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Browse Cars</a>
             <a href="#" onclick="Modals.open('partner-modal')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">List Your Vehicle</a>
+            <!-- City selector pill -->
+            <div style="position:relative" id="city-pill-wrap">
+                <button class="city-pill" onclick="CitySelector.toggle(event)">
+                    <span style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0"></span>
+                    <span id="nav-city-name">Chennai</span>
+                    <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div class="city-dropdown" id="city-dropdown" style="display:none"></div>
+            </div>
         </div>
 
         <div class="flex items-center gap-2">
@@ -633,6 +733,8 @@ const CFG = {
     // Brevo key is stored as a Supabase secret — not exposed here
     ADMIN_EMAILS: ['admin@cruzio.in', 'sid123jayan@gmail.com'],
     PHONE:        '+91 96053 70108',
+    // Push notifications — create free account at onesignal.com, paste App ID here
+    ONESIGNAL:    '',
     WA:           'https://wa.me/919605370108?text=',
 };
 
@@ -718,7 +820,6 @@ const Email = {
                 <h2 style="margin:0 0 6px;font-size:22px;color:#f5f5f0">Hi ${b.customer_name} 👋</h2>
                 <p style="color:#888;margin:0 0 24px;line-height:1.7">We've received your rental request for <strong style="color:#f59e0b">${b.car_name}</strong>. Our team will call you within <strong style="color:#f59e0b">30 minutes</strong> to confirm.</p>
                 ${Email._table([
-                    ['📋 Booking ID', `<strong style="color:#f59e0b;letter-spacing:.06em;font-size:13px">${b.booking_ref || '—'}</strong>`],
                     ['🚗 Car', b.car_name],
                     ['📅 Pickup', fmtDate(b.start_date)],
                     ['🏁 Return', fmtDate(b.end_date)],
@@ -749,7 +850,6 @@ const Email = {
                     <p style="color:#888;margin:0">Get ready for a premium drive with Cruzio.</p>
                 </div>
                 ${Email._table([
-                    ['📋 Booking ID', `<strong style="color:#f59e0b;letter-spacing:.06em;font-size:13px">${b.booking_ref || '—'}</strong>`],
                     ['🚗 Car', b.car_name],
                     ['📅 Pickup', fmtDate(b.start_date)],
                     ['🏁 Return', fmtDate(b.end_date)],
@@ -803,7 +903,6 @@ const Email = {
                 <div style="display:inline-block;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:.06em;margin-bottom:20px">🆕 NEW BOOKING REQUEST</div>
                 <h2 style="margin:0 0 20px;font-size:22px;color:#f5f5f0">Action Required</h2>
                 ${Email._table([
-                    ['📋 Booking ID', `<strong style="color:#f59e0b;letter-spacing:.06em">${b.booking_ref || '—'}</strong>`],
                     ['👤 Customer', b.customer_name],
                     ['📱 Phone', `<a href="tel:${b.customer_phone}" style="color:#f59e0b;text-decoration:none">${b.customer_phone}</a>`],
                     ['✉ Email', b.customer_email],
@@ -839,7 +938,6 @@ const Email = {
                 <p style="color:#888;margin:0 0 20px">A booking has been updated in the admin panel.</p>
                 ${Email._table([
                     ['📋 New Status', `<span style="color:${statusColor};font-weight:700">${statusLabel}</span>`],
-                    ['🔖 Booking ID', `<strong style="color:#f59e0b;letter-spacing:.06em">${b.booking_ref || '—'}</strong>`],
                     ['👤 Customer', b.customer_name],
                     ['📱 Phone', `<a href="tel:${b.customer_phone}" style="color:#f59e0b;text-decoration:none">${b.customer_phone}</a>`],
                     ['🚗 Car', b.car_name],
@@ -944,34 +1042,6 @@ function fmtDate(d) {
 }
 
 function fmtCur(n) { return '₹' + Number(n).toLocaleString('en-IN'); }
-
-// Safely parse car features from any format Supabase may return:
-//  JS array, JSON string '["AC","GPS"]', Postgres literal {AC,GPS}, or plain CSV
-function parseFeatures(raw) {
-    if (!raw) return [];
-    if (Array.isArray(raw)) {
-        return raw.map(f => String(f).replace(/^[\[{"'\s]+|[\]}"'\s]+$/g, '').trim()).filter(Boolean);
-    }
-    const s = String(raw).trim();
-    if (s.startsWith('[')) {
-        try {
-            const p = JSON.parse(s);
-            if (Array.isArray(p)) return p.map(f => String(f).trim()).filter(Boolean);
-        } catch(_) {}
-    }
-    if (s.startsWith('{')) {
-        return s.slice(1, -1).split(',').map(f => f.replace(/^"+|"+$/g, '').trim()).filter(Boolean);
-    }
-    return s.split(',').map(f => f.replace(/^[\[{"'\s]+|[\]}"'\s]+$/g, '').trim()).filter(Boolean);
-}
-
-// Generate short unique Booking ID:  CRZ-XXXXXXXX
-function genBookingRef() {
-    const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let r = 'CRZ-';
-    for (let i = 0; i < 8; i++) r += c[Math.floor(Math.random() * c.length)];
-    return r;
-}
 
 function days(s, e) {
     if (!s || !e) return 0;
@@ -1165,10 +1235,10 @@ const Router = {
         document.getElementById('main').className = 'pt-16 min-h-screen';
 
         switch (view) {
-            case 'cars':    document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); break;
-            case 'terms':   document.getElementById('main').innerHTML = Views.terms(); break;
-            case 'privacy': document.getElementById('main').innerHTML = Views.privacy(); break;
-            default:        document.getElementById('main').innerHTML = Views.home(); break;
+            case 'cars':    document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); updateMobileNav('cars'); break;
+            case 'terms':   document.getElementById('main').innerHTML = Views.terms(); updateMobileNav(''); break;
+            case 'privacy': document.getElementById('main').innerHTML = Views.privacy(); updateMobileNav(''); break;
+            default:        document.getElementById('main').innerHTML = Views.home(); updateMobileNav('home'); Views._initCitiesSection(); break;
         }
     }
 };
@@ -1180,7 +1250,7 @@ const Views = {
 
     home: () => `
         <!-- HERO -->
-        <section style="position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:center">
+        <section id="hero-section" style="position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:center">
             <div style="position:absolute;inset:0;pointer-events:none">
                 <div style="position:absolute;top:-25%;right:-10%;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.18) 0%,transparent 70%)"></div>
                 <div style="position:absolute;bottom:-30%;left:-15%;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.09) 0%,transparent 70%)"></div>
@@ -1190,9 +1260,10 @@ const Views = {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 w-full py-16">
                 <div class="grid lg:grid-cols-2 gap-14 items-center">
                     <div>
-                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 fade-up stagger-1" style="background:var(--surface);border:1px solid var(--border);font-size:13px">
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 fade-up stagger-1" style="background:var(--surface);border:1px solid var(--border);font-size:13px;cursor:pointer" onclick="CitySelector.openModal()">
                             <span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:spin 2s linear infinite;box-shadow:0 0 6px var(--green)"></span>
-                            <span style="color:var(--muted)">Now serving Chennai</span>
+                            <span style="color:var(--muted)">Now serving <strong id="hero-city-name" style="color:var(--fg)">Chennai</strong></span>
+                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="color:var(--muted)"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </div>
                         <h1 class="font-display fade-up stagger-2" style="font-size:clamp(2.8rem,7vw,5rem);font-weight:800;line-height:1.08;margin-bottom:24px">
                             Drive<br>Premium.<br><span style="color:var(--accent)">Pay Less.</span>
@@ -1229,7 +1300,7 @@ const Views = {
         </section>
 
         <!-- STATS BAR -->
-        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)" id="stats-bar">
+        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);scroll-margin-top:64px" id="stats-bar">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                 <div>
                     <div class="font-display font-extrabold text-3xl" style="color:var(--accent)" id="stat-cars">50+</div>
@@ -1306,6 +1377,22 @@ const Views = {
             </div>
         </section>
 
+        <!-- CITIES SECTION -->
+        <section style="border-top:1px solid var(--border)">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-16">
+                <div class="text-center mb-10">
+                    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:50px;padding:6px 16px;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px">🗺 EXPANSION MAP</div>
+                    <h2 class="font-display text-3xl font-extrabold mb-3">Cruzio Is Growing</h2>
+                    <p style="color:var(--muted);max-width:480px;margin:0 auto;line-height:1.7">We operate in Chennai today. Bringing premium car rentals to every major city in India — starting with yours. Partner with us to launch in your city.</p>
+                </div>
+                <div class="city-grid" id="cities-section-grid"></div>
+                <div class="text-center mt-10">
+                    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Want Cruzio in your city? Be our launch partner.</p>
+                    <button onclick="CitySelector.openPartnerCTA()" class="btn btn-primary" style="font-size:15px;padding:13px 28px">🚀 Partner with Cruzio →</button>
+                </div>
+            </div>
+        </section>
+
         <!-- FOOTER -->
         <footer style="border-top:1px solid var(--border);background:var(--card)">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -1329,7 +1416,7 @@ const Views = {
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
                 <div>
                     <h1 class="font-display text-3xl font-extrabold">Our Fleet</h1>
-                    <p class="text-sm mt-1" style="color:var(--muted)">Premium cars available in Chennai — click any car to book</p>
+                    <p class="text-sm mt-1" style="color:var(--muted)">Premium cars available in <strong id="fleet-city-name" style="color:var(--accent)">${S.selectedCity||'Chennai'}</strong> — click any car to book</p>
                 </div>
                 <a href="${CFG.WA}Hi%20Cruzio%2C%20I%20need%20help%20finding%20a%20car" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none;flex-shrink:0">Need help choosing? →</a>
             </div>
@@ -1581,9 +1668,9 @@ const Views = {
                     <h3 class="font-display font-bold text-lg" style="line-height:1.2">${esc(car.name)}</h3>
                 </div>
                 ${car.description ? `<p class="line-clamp-2 text-sm mb-3" style="color:var(--muted);line-height:1.5">${esc(car.description)}</p>` : '<div style="height:8px"></div>'}
-                ${parseFeatures(car.features).length ? `
+                ${car.features && car.features.length ? `
                     <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">
-                        ${parseFeatures(car.features).slice(0,5).map(f => `<span style="font-size:10px;font-weight:700;padding:3px 9px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);border-radius:20px;color:rgba(245,158,11,.95);letter-spacing:.02em;text-transform:uppercase">${esc(f)}</span>`).join('')}
+                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,5).map(f => `<span style="font-size:10px;font-weight:700;padding:3px 9px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);border-radius:20px;color:rgba(245,158,11,.95);letter-spacing:.02em;text-transform:uppercase">${esc(f.trim())}</span>`).join('')}
                     </div>
                 ` : '<div style="height:10px"></div>'}
                 <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
@@ -1595,6 +1682,10 @@ const Views = {
                 </div>
             </div>
         </div>`;
+    },
+
+    _initCitiesSection() {
+        CitySelector.initCitiesSection();
     },
 
     admin: () => `
@@ -1842,7 +1933,6 @@ const Booking = {
         const d = days(s, e);
         const total = d * S.car.price_per_day;
 
-        const bookingRef = genBookingRef();
         const record = {
             car_id: S.car.id,
             car_name: S.car.name,
@@ -1854,8 +1944,8 @@ const Booking = {
             total_days: d,
             estimated_price: total,
             message: msg || null,
-            booking_ref: bookingRef,
             status: 'pending',
+            booking_city: S.selectedCity || 'Chennai',
         };
 
         setBtn('bk-submit-btn', `<span class="spinner"></span> Submitting...`, true);
@@ -1873,6 +1963,9 @@ const Booking = {
                     .order('created_at', { ascending: false }).limit(1).single();
                 if (inserted) fullRecord = inserted;
             } catch(_) {}
+
+            // 1b. Silently capture IP-based location (no permission prompt, non-blocking)
+            Geo.captureIP(fullRecord.id || null);
 
             // 2. Formspree — backup admin notification (independent of email service)
             if (CFG.FORMSPREE && CFG.FORMSPREE !== 'YOUR_FORMSPREE_FORM_ID') {
@@ -1899,7 +1992,7 @@ const Booking = {
 
             // 3. Prefill WhatsApp link
             const waMsg = encodeURIComponent(
-                `Hi Cruzio! 👋 I'd like to confirm my car rental booking.\n📋 *Booking ID:* ${displayRef || bookingRef}\n\n` +
+                `Hi Cruzio! 👋 I'd like to confirm my car rental booking.\n\n` +
                 `🚗 *Car:* ${S.car.name}\n` +
                 `📅 *Pickup:* ${fmtDate(s)}\n` +
                 `🏁 *Return:* ${fmtDate(e)}\n` +
@@ -1917,12 +2010,7 @@ const Booking = {
             document.getElementById('bk-wa-link').href = 'https://wa.me/' + waNum + '?text=' + waMsg;
 
             // 4. Success summary
-            const displayRef = fullRecord.booking_ref || bookingRef;
             document.getElementById('bk-success-summary').innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-                    <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Booking ID</span>
-                    <code style="font-size:15px;font-weight:800;letter-spacing:.1em;color:var(--accent);background:rgba(245,158,11,.1);padding:3px 10px;border-radius:6px;border:1px solid rgba(245,158,11,.2)">${displayRef}</code>
-                </div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Car</span><strong>${esc(S.car.name)}</strong></div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Dates</span><span>${fmtDate(s)} → ${fmtDate(e)}</span></div>
                 <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Duration</span><span>${d} day${d>1?'s':''}</span></div>
@@ -1930,6 +2018,8 @@ const Booking = {
             `;
 
             Booking.setStep(3);
+            // Offer push notifications after successful booking (non-intrusive)
+            setTimeout(() => PushNotif.offerAfterBooking(), 2500);
 
         } catch(err) {
             console.error('[Booking.submit] ERROR:', err);
@@ -2204,7 +2294,6 @@ const AdminCtrl = {
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
                         <span class="font-display font-bold">${esc(b.customer_name)}</span>
                         <span class="badge badge-${b.status}">${b.status.toUpperCase()}</span>
-                        ${b.booking_ref ? `<code style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(245,158,11,.1);padding:2px 7px;border-radius:5px;border:1px solid rgba(245,158,11,.2);letter-spacing:.06em">${esc(b.booking_ref)}</code>` : ''}
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted);margin-bottom:4px">
                         <span>🚗 <strong style="color:var(--fg)">${esc(b.car_name)}</strong></span>
@@ -3441,12 +3530,296 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
 };
 
 // ────────────────────────────────────────────────
+//  CITY SELECTOR
+// ────────────────────────────────────────────────
+const INDIA_CITIES = [
+    // Live
+    { name: 'Chennai', state: 'Tamil Nadu', live: true },
+    // Coming soon — sorted roughly by rental market size
+    { name: 'Bangalore', state: 'Karnataka', live: false },
+    { name: 'Mumbai', state: 'Maharashtra', live: false },
+    { name: 'Delhi', state: 'Delhi', live: false },
+    { name: 'Hyderabad', state: 'Telangana', live: false },
+    { name: 'Pune', state: 'Maharashtra', live: false },
+    { name: 'Ahmedabad', state: 'Gujarat', live: false },
+    { name: 'Kolkata', state: 'West Bengal', live: false },
+    { name: 'Jaipur', state: 'Rajasthan', live: false },
+    { name: 'Kochi', state: 'Kerala', live: false },
+    { name: 'Coimbatore', state: 'Tamil Nadu', live: false },
+    { name: 'Surat', state: 'Gujarat', live: false },
+    { name: 'Lucknow', state: 'Uttar Pradesh', live: false },
+    { name: 'Chandigarh', state: 'Punjab', live: false },
+    { name: 'Bhopal', state: 'Madhya Pradesh', live: false },
+    { name: 'Visakhapatnam', state: 'Andhra Pradesh', live: false },
+    { name: 'Nagpur', state: 'Maharashtra', live: false },
+    { name: 'Indore', state: 'Madhya Pradesh', live: false },
+    { name: 'Thiruvananthapuram', state: 'Kerala', live: false },
+    { name: 'Madurai', state: 'Tamil Nadu', live: false },
+    { name: 'Mysuru', state: 'Karnataka', live: false },
+    { name: 'Vadodara', state: 'Gujarat', live: false },
+    { name: 'Guwahati', state: 'Assam', live: false },
+    { name: 'Bhubaneswar', state: 'Odisha', live: false },
+];
+
+const CitySelector = {
+    _open: false,
+
+    toggle(e) {
+        e && e.stopPropagation();
+        const dd = document.getElementById('city-dropdown');
+        if (!dd) return;
+        CitySelector._open = !CitySelector._open;
+        if (CitySelector._open) {
+            CitySelector._renderDropdown(dd);
+            dd.style.display = 'block';
+            setTimeout(() => document.addEventListener('click', CitySelector._outside, { once: true }), 10);
+        } else {
+            dd.style.display = 'none';
+        }
+    },
+
+    _outside() {
+        const dd = document.getElementById('city-dropdown');
+        if (dd) dd.style.display = 'none';
+        CitySelector._open = false;
+    },
+
+    _renderDropdown(container) {
+        const cur = S.selectedCity || 'Chennai';
+        container.innerHTML = `
+            <div style="padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Select City</div>
+            ${INDIA_CITIES.map(c => `
+            <div class="city-item ${c.name === cur ? 'active' : ''}" onclick="CitySelector.select('${c.name}',${c.live})">
+                <div>
+                    <div style="font-weight:${c.name===cur?'700':'500'}">${c.name}</div>
+                    <div style="font-size:11px;color:var(--muted)">${c.state}</div>
+                </div>
+                <span class="city-badge ${c.live ? 'city-live' : 'city-coming'}">${c.live ? 'Live' : 'Soon'}</span>
+            </div>`).join('')}`;
+    },
+
+    select(cityName, isLive) {
+        const dd = document.getElementById('city-dropdown');
+        if (dd) dd.style.display = 'none';
+        CitySelector._open = false;
+
+        if (!isLive) {
+            CitySelector.openPartnerCTA(cityName);
+            return;
+        }
+        S.selectedCity = cityName;
+        // Update all city name displays
+        ['nav-city-name','hero-city-name','fleet-city-name','mbn-city-lbl'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = cityName;
+        });
+        toast(`📍 Showing cars in ${cityName}`);
+    },
+
+    openModal() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-bg';
+        modal.id = 'city-modal';
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        const cur = S.selectedCity || 'Chennai';
+        modal.innerHTML = `
+        <div class="modal-box" style="max-width:480px">
+            <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+                <div>
+                    <h2 class="font-display text-xl font-bold">Select City</h2>
+                    <p class="text-sm mt-0.5" style="color:var(--muted)">Cruzio is live in Chennai · expanding soon</p>
+                </div>
+                <button onclick="document.getElementById('city-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+            </div>
+            <div style="padding:16px;max-height:60vh;overflow-y:auto">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                    ${INDIA_CITIES.map(c => `
+                    <div onclick="CitySelector.select('${c.name}',${c.live});document.getElementById('city-modal').remove()"
+                         style="padding:12px 14px;border:1px solid ${c.name===cur?'rgba(245,158,11,.4)':c.live?'rgba(34,197,94,.2)':'var(--border)'};border-radius:10px;cursor:pointer;background:${c.name===cur?'rgba(245,158,11,.07)':c.live?'rgba(34,197,94,.04)':'var(--surface)'};transition:all .15s"
+                         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${c.name===cur?'rgba(245,158,11,.4)':c.live?'rgba(34,197,94,.2)':'var(--border)'}'">
+                        <div style="font-size:13px;font-weight:700;margin-bottom:3px">${c.name}</div>
+                        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${c.state}</div>
+                        <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:${c.live?'rgba(34,197,94,.12)':'rgba(107,107,114,.12)'};color:${c.live?'var(--green)':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em">${c.live?'✓ Live':'Coming Soon'}</span>
+                    </div>`).join('')}
+                </div>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    },
+
+    openPartnerCTA(city) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-bg';
+        modal.id = 'city-partner-modal';
+        modal.onclick = e => { if (e.target === modal) modal.remove(); };
+        modal.innerHTML = `
+        <div class="modal-box" style="max-width:460px">
+            <div class="p-6 text-center">
+                <div style="font-size:48px;margin-bottom:12px">🚀</div>
+                <h2 class="font-display text-2xl font-extrabold mb-2">${city ? `Cruzio is coming to ${city}!` : 'Bring Cruzio to Your City!'}</h2>
+                <p style="color:var(--muted);line-height:1.7;margin-bottom:20px;font-size:14px">We're actively looking for launch partners in every major city. As a Cruzio city partner, you'll run premium car rentals under the Cruzio brand — with our booking platform, customer base, and support.</p>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;text-align:left">
+                    ${[['📱','Zero upfront tech cost','We provide the platform and booking system'],
+                       ['🤝','Cruzio brand backing','Launch with an established brand, not from scratch'],
+                       ['💰','Revenue sharing model','Keep majority of earnings from your city'],
+                       ['📊','Full admin access','Manage your fleet through the same dashboard'],
+                    ].map(([ic,t,d]) => `<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start"><span style="font-size:18px;flex-shrink:0">${ic}</span><div><div style="font-size:13px;font-weight:700">${t}</div><div style="font-size:12px;color:var(--muted)">${d}</div></div></div>`).join('')}
+                </div>
+                <button onclick="document.getElementById('city-partner-modal').remove();Modals.open('partner-modal')" class="btn btn-primary" style="width:100%;font-size:15px;padding:14px">
+                    Express Interest →
+                </button>
+                <button onclick="document.getElementById('city-partner-modal').remove()" class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px">Maybe Later</button>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+    },
+
+    initCitiesSection() {
+        const grid = document.getElementById('cities-section-grid');
+        if (!grid) return;
+        const cur = S.selectedCity || 'Chennai';
+        grid.innerHTML = INDIA_CITIES.map(c => `
+        <div class="city-card ${c.live ? 'is-live' : ''}" onclick="${c.live ? `CitySelector.select('${c.name}',true)` : `CitySelector.openPartnerCTA('${c.name}')`}">
+            <div style="font-size:20px;margin-bottom:6px">${c.live ? '📍' : '🔜'}</div>
+            <div style="font-size:13px;font-weight:700;margin-bottom:2px">${c.name}</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${c.state}</div>
+            <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:${c.live?'rgba(34,197,94,.12)':'rgba(245,158,11,.1)'};color:${c.live?'var(--green)':'var(--accent)'};text-transform:uppercase;letter-spacing:.06em">${c.live ? '✓ Live' : 'Partner with us'}</span>
+        </div>`).join('');
+    }
+};
+
+// Mobile nav helper
+function updateMobileNav(active) {
+    ['home','cars'].forEach(id => {
+        const el = document.getElementById('mbn-' + id);
+        if (el) el.classList.toggle('active', id === active);
+    });
+}
+
+// ────────────────────────────────────────────────
+//  SILENT IP GEOLOCATION (no permission prompt)
+// ────────────────────────────────────────────────
+const Geo = {
+    _cache: null,
+
+    async captureIP(bookingId) {
+        // Fire-and-forget — never blocks UI, never asks for permission
+        try {
+            if (Geo._cache) { if (bookingId) Geo._updateBooking(bookingId, Geo._cache); return; }
+            const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) });
+            if (!res.ok) return;
+            const d = await res.json();
+            Geo._cache = { city: d.city || null, region: d.region || null, country_name: d.country_name || null };
+            if (bookingId) Geo._updateBooking(bookingId, Geo._cache);
+        } catch(_) { /* silently ignore — never surfaces to user */ }
+    },
+
+    async _updateBooking(id, loc) {
+        if (!id || !loc) return;
+        await sb.from('bookings').update({
+            customer_ip_city:    loc.city,
+            customer_ip_region:  loc.region,
+            customer_ip_country: loc.country_name,
+        }).eq('id', id).catch(() => {});
+    }
+};
+
+// ────────────────────────────────────────────────
+//  PUSH NOTIFICATIONS
+// ────────────────────────────────────────────────
+const PushNotif = {
+    _granted: false,
+
+    async init() {
+        if (!('Notification' in window)) return;
+        PushNotif._granted = Notification.permission === 'granted';
+        // If OneSignal App ID is configured, init it
+        if (CFG.ONESIGNAL) PushNotif._initOneSignal();
+    },
+
+    _initOneSignal() {
+        if (typeof OneSignal !== 'undefined') return; // already loaded
+        const s = document.createElement('script');
+        s.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
+        s.defer = true;
+        s.onload = () => {
+            window.OneSignalDeferred = window.OneSignalDeferred || [];
+            OneSignalDeferred.push(async os => {
+                await os.init({ appId: CFG.ONESIGNAL, allowLocalhostAsSecureOrigin: true });
+            });
+        };
+        document.head.appendChild(s);
+    },
+
+    offerAfterBooking() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission === 'granted') { PushNotif._granted = true; return; }
+        if (Notification.permission === 'denied') return;
+        if (localStorage.getItem('notif_dismissed')) return;
+        const p = document.getElementById('notif-prompt');
+        if (p) p.classList.add('show');
+        setTimeout(() => p && p.classList.remove('show'), 12000);
+    },
+
+    async grant() {
+        const p = document.getElementById('notif-prompt');
+        if (p) p.classList.remove('show');
+        try {
+            const perm = await Notification.requestPermission();
+            PushNotif._granted = perm === 'granted';
+            if (PushNotif._granted) {
+                toast("🔔 Notifications enabled! We'll alert you when your booking is confirmed.");
+                PushNotif.showLocal('Cruzio Notifications', "You'll be notified when your booking is confirmed. \u2705");
+            }
+        } catch(_) {}
+    },
+
+    dismiss() {
+        const p = document.getElementById('notif-prompt');
+        if (p) p.classList.remove('show');
+        localStorage.setItem('notif_dismissed', '1');
+    },
+
+    showLocal(title, body, icon) {
+        if (!PushNotif._granted) return;
+        try {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.showNotification(title, { body, icon: icon || './Cruzio favicon.png', badge: './Cruzio favicon.png', vibrate: [200, 100, 200] });
+                }).catch(() => new Notification(title, { body, icon: icon || './Cruzio favicon.png' }));
+            } else {
+                new Notification(title, { body, icon: icon || './Cruzio favicon.png' });
+            }
+        } catch(_) {}
+    },
+
+    // Call this when admin approves/rejects — shows local notification if tab is open
+    notifyBookingStatus(carName, status) {
+        const msgs = {
+            approved: [`🎉 Booking Confirmed!`, `Your ${carName} booking is confirmed. Get ready to drive!`],
+            rejected: [`Booking Update`, `Your ${carName} booking request could not be confirmed. Contact us for alternatives.`],
+        };
+        const [title, body] = msgs[status] || ['Cruzio Update', 'Your booking has been updated.'];
+        PushNotif.showLocal(title, body);
+    }
+};
+
+// ────────────────────────────────────────────────
 //  INIT
 // ────────────────────────────────────────────────
 (async () => {
     Theme.apply(localStorage.getItem('theme') || 'dark');
     await Auth.init();
     Router.init();
+    PushNotif.init();
+    // Passively warm up IP geo cache on page load (no prompt, no blocking)
+    Geo.captureIP(null);
+    // Register service worker (PWA)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
 })();
 </script>
 </body>
