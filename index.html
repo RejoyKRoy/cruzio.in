@@ -3,7 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cruzio.in | Premium Car Rentals Chennai</title>
+    <title>Cruzio.in | Premium Car Rentals Chennai — Best Self-Drive Cars</title>
+    <meta name="description" content="Book premium self-drive cars in Chennai. Sedans, SUVs, Luxury & more. Instant confirmation, doorstep delivery. Starting ₹1,299/day.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://cruzio.in/">
+    <meta property="og:title" content="Cruzio.in | Premium Car Rentals Chennai">
+    <meta property="og:description" content="Book premium self-drive cars in Chennai. Sedans, SUVs, Luxury & more. Starting ₹1,299/day.">
+    <meta property="og:image" content="https://cruzio.in/Cruzio logo.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Cruzio.in | Premium Car Rentals Chennai">
+    <meta name="twitter:description" content="Book premium self-drive cars in Chennai. Starting ₹1,299/day.">
+    <link rel="canonical" href="https://cruzio.in/">
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#f59e0b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Cruzio">
+    <link rel="apple-touch-icon" href="./Cruzio logo.png">
     <link rel="icon" type="image/png" href="./Cruzio favicon.png">
 
     <!--
@@ -42,10 +59,6 @@
       estimated_price integer not null,
       message text,
       status text default 'pending',
-      booking_city text,
-      customer_ip_city text,
-      customer_ip_region text,
-      customer_ip_country text,
       created_at timestamptz default now()
     );
 
@@ -73,6 +86,43 @@
 
     create policy "Anyone can inquire" on partner_inquiries for insert with check (true);
     create policy "Auth read inquiries" on partner_inquiries for select using (auth.role() = 'authenticated');
+
+    -- 5. Reviews table
+    create table if not exists reviews (
+      id uuid default gen_random_uuid() primary key,
+      car_id uuid references cars(id) on delete cascade,
+      car_name text, booking_id uuid,
+      customer_name text not null, customer_email text not null,
+      rating integer not null check(rating between 1 and 5),
+      comment text, is_approved boolean default false,
+      created_at timestamptz default now()
+    );
+    alter table reviews enable row level security;
+    create policy "Public read approved reviews" on reviews for select using (is_approved=true or auth.role()='authenticated');
+    create policy "Anyone submit review" on reviews for insert with check (true);
+    create policy "Auth manage reviews" on reviews for all using (auth.role()='authenticated') with check (auth.role()='authenticated');
+
+    -- 6. Referrals table
+    create table if not exists referrals (
+      id uuid default gen_random_uuid() primary key,
+      code text unique not null,
+      owner_email text not null,
+      owner_name text,
+      times_used integer default 0,
+      created_at timestamptz default now()
+    );
+    alter table referrals enable row level security;
+    create policy "Anyone lookup referral" on referrals for select using (true);
+    create policy "Anyone create referral" on referrals for insert with check (true);
+    create policy "Anyone use referral" on referrals for update using (true) with check (true);
+
+    -- 7. New booking columns (run if table exists):
+    -- alter table bookings add column if not exists booking_ref text;
+    -- alter table bookings add column if not exists addons jsonb;
+    -- alter table bookings add column if not exists pickup_location text;
+    -- alter table bookings add column if not exists referral_code text;
+    -- alter table bookings add column if not exists cancellation_reason text;
+    -- alter table bookings add column if not exists cancelled_by text;
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     -->
@@ -264,99 +314,40 @@
         .photo-add-btn { aspect-ratio:4/3; border-radius:8px; border:2px dashed var(--border); display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color .2s; color:var(--muted); font-size:12px; gap:6px; background:none; }
         .photo-add-btn:hover { border-color:var(--accent); color:var(--accent); }
 
-        /* ── City selector ── */
-        .city-pill { display:inline-flex; align-items:center; gap:6px; padding:5px 12px 5px 10px; border-radius:50px; background:var(--surface); border:1px solid var(--border); font-size:12px; font-weight:600; color:var(--fg); cursor:pointer; transition:all .2s; position:relative; }
-        .city-pill:hover { border-color:var(--accent); color:var(--accent); }
-        .city-dropdown { position:absolute; top:calc(100% + 8px); left:0; min-width:260px; background:var(--card); border:1px solid var(--border); border-radius:14px; box-shadow:0 20px 40px rgba(0,0,0,.5); z-index:300; padding:8px; max-height:360px; overflow-y:auto; }
-        .city-item { display:flex; align-items:center; justify-content:space-between; padding:9px 12px; border-radius:8px; cursor:pointer; font-size:13px; transition:background .15s; }
-        .city-item:hover { background:var(--surface); }
-        .city-item.active { background:rgba(245,158,11,.1); color:var(--accent); font-weight:700; }
-        .city-item .city-badge { font-size:9px; font-weight:700; padding:2px 7px; border-radius:20px; text-transform:uppercase; letter-spacing:.06em; }
-        .city-coming { background:rgba(107,107,114,.12); color:var(--muted); }
-        .city-live { background:rgba(34,197,94,.12); color:var(--green); }
+        /* ── Add-on rows ── */
+        .addon-row { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border:1px solid var(--border); border-radius:10px; cursor:pointer; transition:all .18s; user-select:none; background:var(--surface); }
+        .addon-row:hover { border-color:var(--accent); }
+        .addon-row.selected { background:rgba(245,158,11,.08); border-color:rgba(245,158,11,.4); }
+        .addon-check { width:20px; height:20px; border-radius:5px; border:1.5px solid var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all .18s; }
+        .addon-row.selected .addon-check { background:var(--accent); border-color:var(--accent); }
 
-        /* ── Bottom mobile nav ── */
-        .mobile-bottom-nav { display:none; position:fixed; bottom:0; left:0; right:0; z-index:80; background:var(--card); border-top:1px solid var(--border); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); padding:8px 0 max(8px, env(safe-area-inset-bottom)); }
-        .mobile-bottom-nav a, .mobile-bottom-nav button { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10px; font-weight:600; color:var(--muted); text-decoration:none; background:none; border:none; cursor:pointer; padding:4px 0; transition:color .2s; letter-spacing:.03em; text-transform:uppercase; }
-        .mobile-bottom-nav a.active, .mobile-bottom-nav button.active { color:var(--accent); }
-        .mobile-bottom-nav a svg, .mobile-bottom-nav button svg { transition:transform .2s; }
-        .mobile-bottom-nav a:active svg, .mobile-bottom-nav button:active svg { transform:scale(.88); }
-        @media (max-width: 767px) {
-            .mobile-bottom-nav { display:flex; }
-            body { padding-bottom: 64px; }
-            .wa-btn { bottom: 80px; right: 16px; width:46px; height:46px; }
-            /* bigger tap targets */
-            .btn { min-height: 44px; }
-            .btn-sm { min-height: 36px; }
-            .chip { min-height: 36px; padding: 6px 14px; }
-            .inp { font-size: 16px !important; } /* prevent iOS zoom */
-            /* full-width modals bottom-sheet on small screens */
-            @media (max-height: 700px) {
-                .modal-box { max-height: 96vh; }
-            }
-            /* car card mobile */
-            .car-card:hover { transform: none; }
-            .carousel-track img { height: 185px; }
-        }
+        /* ── Stars ── */
+        .stars { display:inline-flex; gap:1px; }
+        .star { font-size:13px; color:var(--border); line-height:1; cursor:default; }
+        .star.on { color:#f59e0b; }
+        .star.interactive { cursor:pointer; }
 
-        /* ── Notification toast ── */
-        #notif-prompt { position:fixed; bottom:76px; left:50%; transform:translateX(-50%); z-index:500; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; display:flex; align-items:center; gap:12px; box-shadow:0 16px 40px rgba(0,0,0,.5); max-width:340px; width:calc(100% - 32px); transition:all .4s; opacity:0; pointer-events:none; }
-        #notif-prompt.show { opacity:1; pointer-events:all; }
-        #notif-prompt.hide { opacity:0; transform:translateX(-50%) translateY(20px); }
+        /* ── Booking ref badge ── */
+        .bk-ref-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.25); border-radius:8px; padding:8px 16px; }
 
-        /* ── City CTA section ── */
-        .city-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
-        .city-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; text-align:center; cursor:pointer; transition:all .2s; }
-        .city-card:hover { border-color:var(--accent); background:rgba(245,158,11,.04); }
-        .city-card.is-live { border-color:rgba(34,197,94,.3); }
+        /* ── Badge extra states ── */
+        .badge-cancelled { background:rgba(107,107,114,.15); color:var(--muted); }
 
-        /* ── Mobile hero improvements ── */
-        @media (max-width: 640px) {
-            #hero-section { min-height: 88vh !important; padding-top: 12px !important; }
-            #hero-section h1 { font-size: clamp(2.4rem, 12vw, 3.5rem) !important; margin-bottom: 16px !important; }
-            #hero-section p { font-size: 15px !important; margin-bottom: 24px !important; }
-            #stats-bar .grid { grid-template-columns: repeat(2, 1fr) !important; gap: 16px !important; padding: 28px 16px !important; }
-        }
+        /* ── Search/filter bar ── */
+        .filter-bar { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:20px; }
+
+        /* ── Portal track modal ── */
+        .portal-bk-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
+        .portal-bk-card.status-approved { border-left:3px solid var(--green); }
+        .portal-bk-card.status-pending  { border-left:3px solid var(--accent); }
+        .portal-bk-card.status-rejected { border-left:3px solid var(--red); }
+        .portal-bk-card.status-cancelled{ border-left:3px solid var(--muted); }
+
+        /* ── Flatpickr disabled dates ── */
+        .flatpickr-day.booked { background:rgba(239,68,68,.12) !important; border-color:rgba(239,68,68,.2) !important; color:var(--red) !important; text-decoration:line-through; }
     </style>
 </head>
 <body>
-
-<!-- ══════════════════════════════════════════════ -->
-<!--  NOTIFICATION PROMPT                           -->
-<!-- ══════════════════════════════════════════════ -->
-<div id="notif-prompt">
-    <span style="font-size:24px;flex-shrink:0">🔔</span>
-    <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:700;margin-bottom:2px">Stay updated</div>
-        <div style="font-size:12px;color:var(--muted)">Get notified when your booking is confirmed</div>
-    </div>
-    <div style="display:flex;gap:6px;flex-shrink:0">
-        <button onclick="PushNotif.grant()" class="btn btn-primary btn-sm">Allow</button>
-        <button onclick="PushNotif.dismiss()" class="btn btn-ghost btn-sm">Later</button>
-    </div>
-</div>
-
-<!-- ══════════════════════════════════════════════ -->
-<!--  MOBILE BOTTOM NAV                             -->
-<!-- ══════════════════════════════════════════════ -->
-<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
-    <a href="#home" id="mbn-home" onclick="updateMobileNav('home')">
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-        Home
-    </a>
-    <a href="#cars" id="mbn-cars" onclick="updateMobileNav('cars')">
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/><rect x="3" y="11" width="18" height="10" rx="2" stroke-width="0"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 17H4a1 1 0 01-1-1v-4l2-5h14l2 5v4a1 1 0 01-1 1h-1m-10 0h6"/></svg>
-        Browse
-    </a>
-    <a href="https://wa.me/919605370108" target="_blank" style="color:#25D366 !important">
-        <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        WhatsApp
-    </a>
-    <button onclick="CitySelector.openModal()" id="mbn-city">
-        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        <span id="mbn-city-lbl">Chennai</span>
-    </button>
-</nav>
 
 <!-- ══════════════════════════════════════════════ -->
 <!--  FLOATING WHATSAPP                             -->
@@ -382,15 +373,7 @@
             <a href="#home" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Home</a>
             <a href="#cars" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Browse Cars</a>
             <a href="#" onclick="Modals.open('partner-modal')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">List Your Vehicle</a>
-            <!-- City selector pill -->
-            <div style="position:relative" id="city-pill-wrap">
-                <button class="city-pill" onclick="CitySelector.toggle(event)">
-                    <span style="width:7px;height:7px;border-radius:50%;background:var(--green);flex-shrink:0"></span>
-                    <span id="nav-city-name">Chennai</span>
-                    <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-                <div class="city-dropdown" id="city-dropdown" style="display:none"></div>
-            </div>
+            <a href="#" onclick="CustomerPortal.open()" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Track Booking</a>
         </div>
 
         <div class="flex items-center gap-2">
@@ -407,6 +390,7 @@
             <a href="#home" onclick="closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Home</a>
             <a href="#cars" onclick="closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Browse Cars</a>
             <a href="#" onclick="Modals.open('partner-modal');closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">List Your Vehicle</a>
+            <a href="#" onclick="CustomerPortal.open();closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Track Booking</a>
         </div>
     </div>
 </nav>
@@ -478,12 +462,45 @@
                     <span style="color:var(--muted)">Rate per day</span>
                     <span class="font-semibold" id="est-rate">-</span>
                 </div>
+                <div class="flex justify-between text-sm mb-2" id="addon-total-row" style="display:none">
+                    <span style="color:var(--muted)">Add-ons</span>
+                    <span class="font-semibold" id="est-addon-total" style="color:var(--accent)">₹0</span>
+                </div>
                 <hr class="divider my-3">
                 <div class="flex justify-between items-center">
                     <span class="font-bold">Estimated Total</span>
                     <span class="font-display font-bold text-xl" style="color:var(--accent)" id="est-total">₹0</span>
                 </div>
                 <p class="text-xs mt-2" style="color:var(--muted)">*Final price confirmed upon booking approval</p>
+            </div>
+
+            <!-- Add-ons (shown once dates are picked) -->
+            <div id="bk-addons-wrap" class="hidden" style="display:flex;flex-direction:column;gap:8px">
+                <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px">Optional Add-ons</div>
+                <div class="addon-row" id="addon-driver" onclick="Booking.toggleAddon('driver')">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-size:18px">🧑‍✈️</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:700">Professional Driver</div>
+                            <div style="font-size:11px;color:var(--muted)">₹800/day</div>
+                        </div>
+                    </div>
+                    <div class="addon-check" id="addon-driver-chk">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;stroke:#000"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                </div>
+                <div class="addon-row" id="addon-ins" onclick="Booking.toggleAddon('ins')">
+                    <div style="display:flex;align-items:center;gap:10px">
+                        <span style="font-size:18px">🛡️</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:700">Zero Excess Insurance</div>
+                            <div style="font-size:11px;color:var(--muted)">₹300/day · full damage cover</div>
+                        </div>
+                    </div>
+                    <div class="addon-check" id="addon-ins-chk">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display:none;stroke:#000"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                </div>
             </div>
 
             <button onclick="Booking.nextStep()" class="btn btn-primary" style="width:100%">Continue to Your Details →</button>
@@ -507,8 +524,20 @@
                 <input type="email" id="bk-cemail" class="inp" placeholder="you@example.com">
             </div>
             <div>
+                <label class="lbl">PICKUP LOCATION *</label>
+                <input type="text" id="bk-location" class="inp" placeholder="Address or landmark for pickup">
+            </div>
+            <div>
                 <label class="lbl">MESSAGE (OPTIONAL)</label>
-                <textarea id="bk-cmsg" class="inp" placeholder="Pickup location, special requests..."></textarea>
+                <textarea id="bk-cmsg" class="inp" placeholder="Special requests, notes..."></textarea>
+            </div>
+            <div>
+                <label class="lbl">REFERRAL CODE (OPTIONAL)</label>
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="bk-referral" class="inp" placeholder="CRZxxxxx — get 5% off" style="text-transform:uppercase">
+                    <button type="button" onclick="Booking.applyReferral()" class="btn btn-ghost btn-sm" style="flex-shrink:0">Apply</button>
+                </div>
+                <div id="bk-referral-msg" style="font-size:12px;margin-top:4px"></div>
             </div>
 
             <!-- Summary -->
@@ -517,6 +546,8 @@
                 <div class="flex justify-between"><span style="color:var(--muted)">Car</span><span class="font-medium" id="sum-car">-</span></div>
                 <div class="flex justify-between"><span style="color:var(--muted)">Dates</span><span class="font-medium" id="sum-dates">-</span></div>
                 <div class="flex justify-between"><span style="color:var(--muted)">Duration</span><span class="font-medium" id="sum-dur">-</span></div>
+                <div class="flex justify-between" id="sum-addons-row" style="display:none"><span style="color:var(--muted)">Add-ons</span><span class="font-medium" style="color:var(--accent)" id="sum-addons-val">-</span></div>
+                <div class="flex justify-between" id="sum-discount-row" style="display:none"><span style="color:var(--green)">Referral discount (5%)</span><span class="font-medium" style="color:var(--green)" id="sum-discount-val">-</span></div>
                 <hr class="divider">
                 <div class="flex justify-between"><span class="font-bold">Est. Total</span><span class="font-display font-bold" style="color:var(--accent)" id="sum-total">-</span></div>
             </div>
@@ -566,6 +597,39 @@
                     Done — Close
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  MODAL: CUSTOMER PORTAL                        -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="portal-modal" class="modal-bg" style="display:none">
+    <div class="modal-box" style="max-width:580px">
+        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+            <div>
+                <h2 class="font-display text-xl font-bold">My Bookings</h2>
+                <p class="text-sm mt-0.5" style="color:var(--muted)">Look up your bookings by email & phone</p>
+            </div>
+            <button onclick="Modals.close('portal-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+        <!-- Lookup form -->
+        <div id="portal-lookup" class="p-5 space-y-4">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="lbl">EMAIL</label>
+                    <input type="email" id="portal-email" class="inp" placeholder="you@example.com">
+                </div>
+                <div>
+                    <label class="lbl">PHONE</label>
+                    <input type="tel" id="portal-phone" class="inp" placeholder="+91 98765 43210">
+                </div>
+            </div>
+            <button onclick="CustomerPortal.lookup()" id="portal-lookup-btn" class="btn btn-primary" style="width:100%">Find My Bookings →</button>
+        </div>
+        <!-- Results -->
+        <div id="portal-results" class="hidden p-5">
+            <div id="portal-results-inner"></div>
         </div>
     </div>
 </div>
@@ -733,8 +797,6 @@ const CFG = {
     // Brevo key is stored as a Supabase secret — not exposed here
     ADMIN_EMAILS: ['admin@cruzio.in', 'sid123jayan@gmail.com'],
     PHONE:        '+91 96053 70108',
-    // Push notifications — create free account at onesignal.com, paste App ID here
-    ONESIGNAL:    '',
     WA:           'https://wa.me/919605370108?text=',
 };
 
@@ -762,11 +824,24 @@ function togglePw(id, btn) {
 const S = {
     user: null,
     profile: null,
-    car: null,           // selected car for booking
+    car: null,
     dates: { s: null, e: null },
+    addons: { driver: false, ins: false },
+    validReferral: null,
     allCars: [],
-    settings: {},        // loaded from app_settings table
+    currentCat: 'all',
+    ratings: {},
+    settings: {},
 };
+
+function parseFeatures(raw) {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw.map(f => String(f).replace(/^[\[{"'\s]+|[\]}"'\s]+$/g,'').trim()).filter(Boolean);
+    const s = String(raw).trim();
+    if (s.startsWith('[')) { try { const p=JSON.parse(s); if(Array.isArray(p)) return p.map(f=>String(f).trim()).filter(Boolean); } catch(_){} }
+    if (s.startsWith('{')) return s.slice(1,-1).split(',').map(f=>f.replace(/^"+|"+$/g,'').trim()).filter(Boolean);
+    return s.split(',').map(f=>f.replace(/^[\[{"'\s]+|[\]}"'\s]+$/g,'').trim()).filter(Boolean);
+}
 
 // ────────────────────────────────────────────────
 //  EMAIL — Brevo Transactional API
@@ -1235,10 +1310,10 @@ const Router = {
         document.getElementById('main').className = 'pt-16 min-h-screen';
 
         switch (view) {
-            case 'cars':    document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); updateMobileNav('cars'); break;
-            case 'terms':   document.getElementById('main').innerHTML = Views.terms(); updateMobileNav(''); break;
-            case 'privacy': document.getElementById('main').innerHTML = Views.privacy(); updateMobileNav(''); break;
-            default:        document.getElementById('main').innerHTML = Views.home(); updateMobileNav('home'); Views._initCitiesSection(); break;
+            case 'cars':    document.getElementById('main').innerHTML = Views.cars(); CarCtrl.init(); break;
+            case 'terms':   document.getElementById('main').innerHTML = Views.terms(); break;
+            case 'privacy': document.getElementById('main').innerHTML = Views.privacy(); break;
+            default:        document.getElementById('main').innerHTML = Views.home(); break;
         }
     }
 };
@@ -1250,7 +1325,7 @@ const Views = {
 
     home: () => `
         <!-- HERO -->
-        <section id="hero-section" style="position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:center">
+        <section style="position:relative;overflow:hidden;min-height:92vh;display:flex;align-items:center">
             <div style="position:absolute;inset:0;pointer-events:none">
                 <div style="position:absolute;top:-25%;right:-10%;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.18) 0%,transparent 70%)"></div>
                 <div style="position:absolute;bottom:-30%;left:-15%;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.09) 0%,transparent 70%)"></div>
@@ -1260,10 +1335,9 @@ const Views = {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 w-full py-16">
                 <div class="grid lg:grid-cols-2 gap-14 items-center">
                     <div>
-                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 fade-up stagger-1" style="background:var(--surface);border:1px solid var(--border);font-size:13px;cursor:pointer" onclick="CitySelector.openModal()">
+                        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-6 fade-up stagger-1" style="background:var(--surface);border:1px solid var(--border);font-size:13px">
                             <span style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:spin 2s linear infinite;box-shadow:0 0 6px var(--green)"></span>
-                            <span style="color:var(--muted)">Now serving <strong id="hero-city-name" style="color:var(--fg)">Chennai</strong></span>
-                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="color:var(--muted)"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                            <span style="color:var(--muted)">Now serving Chennai</span>
                         </div>
                         <h1 class="font-display fade-up stagger-2" style="font-size:clamp(2.8rem,7vw,5rem);font-weight:800;line-height:1.08;margin-bottom:24px">
                             Drive<br>Premium.<br><span style="color:var(--accent)">Pay Less.</span>
@@ -1300,7 +1374,7 @@ const Views = {
         </section>
 
         <!-- STATS BAR -->
-        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface);scroll-margin-top:64px" id="stats-bar">
+        <section style="border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--surface)" id="stats-bar">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
                 <div>
                     <div class="font-display font-extrabold text-3xl" style="color:var(--accent)" id="stat-cars">50+</div>
@@ -1377,22 +1451,6 @@ const Views = {
             </div>
         </section>
 
-        <!-- CITIES SECTION -->
-        <section style="border-top:1px solid var(--border)">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-16">
-                <div class="text-center mb-10">
-                    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:50px;padding:6px 16px;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:16px">🗺 EXPANSION MAP</div>
-                    <h2 class="font-display text-3xl font-extrabold mb-3">Cruzio Is Growing</h2>
-                    <p style="color:var(--muted);max-width:480px;margin:0 auto;line-height:1.7">We operate in Chennai today. Bringing premium car rentals to every major city in India — starting with yours. Partner with us to launch in your city.</p>
-                </div>
-                <div class="city-grid" id="cities-section-grid"></div>
-                <div class="text-center mt-10">
-                    <p style="color:var(--muted);font-size:14px;margin-bottom:16px">Want Cruzio in your city? Be our launch partner.</p>
-                    <button onclick="CitySelector.openPartnerCTA()" class="btn btn-primary" style="font-size:15px;padding:13px 28px">🚀 Partner with Cruzio →</button>
-                </div>
-            </div>
-        </section>
-
         <!-- FOOTER -->
         <footer style="border-top:1px solid var(--border);background:var(--card)">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -1416,12 +1474,30 @@ const Views = {
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
                 <div>
                     <h1 class="font-display text-3xl font-extrabold">Our Fleet</h1>
-                    <p class="text-sm mt-1" style="color:var(--muted)">Premium cars available in <strong id="fleet-city-name" style="color:var(--accent)">${S.selectedCity||'Chennai'}</strong> — click any car to book</p>
+                    <p class="text-sm mt-1" style="color:var(--muted)">Premium cars available in Chennai — click any car to book</p>
                 </div>
                 <a href="${CFG.WA}Hi%20Cruzio%2C%20I%20need%20help%20finding%20a%20car" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none;flex-shrink:0">Need help choosing? →</a>
             </div>
 
-            <!-- Filters -->
+            <!-- Search + sort controls -->
+            <div class="filter-bar">
+                <input type="text" id="car-search" class="inp" style="max-width:260px;margin-bottom:0" placeholder="🔍 Search cars..." oninput="CarCtrl.applyFilters()">
+                <select id="price-max" class="inp" style="max-width:165px;margin-bottom:0" onchange="CarCtrl.applyFilters()">
+                    <option value="">Any Price</option>
+                    <option value="2000">Up to ₹2,000/day</option>
+                    <option value="3500">Up to ₹3,500/day</option>
+                    <option value="5000">Up to ₹5,000/day</option>
+                    <option value="10000">Up to ₹10,000/day</option>
+                </select>
+                <select id="car-sort" class="inp" style="max-width:165px;margin-bottom:0" onchange="CarCtrl.applyFilters()">
+                    <option value="">Sort: Newest</option>
+                    <option value="price-asc">Price: Low → High</option>
+                    <option value="price-desc">Price: High → Low</option>
+                    <option value="rating">Top Rated</option>
+                    <option value="name">Name A–Z</option>
+                </select>
+            </div>
+            <!-- Category chips -->
             <div class="flex flex-wrap gap-2 mb-8" id="filter-row">
                 <button class="chip active" data-cat="all" onclick="CarCtrl.filter('all')">All</button>
                 ${['Sedan','SUV','Luxury','Van/MUV','Hatchback','Sports'].map(c => `
@@ -1668,11 +1744,17 @@ const Views = {
                     <h3 class="font-display font-bold text-lg" style="line-height:1.2">${esc(car.name)}</h3>
                 </div>
                 ${car.description ? `<p class="line-clamp-2 text-sm mb-3" style="color:var(--muted);line-height:1.5">${esc(car.description)}</p>` : '<div style="height:8px"></div>'}
-                ${car.features && car.features.length ? `
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px">
-                        ${(Array.isArray(car.features) ? car.features : String(car.features).split(',')).slice(0,5).map(f => `<span style="font-size:10px;font-weight:700;padding:3px 9px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);border-radius:20px;color:rgba(245,158,11,.95);letter-spacing:.02em;text-transform:uppercase">${esc(f.trim())}</span>`).join('')}
+                ${parseFeatures(car.features).length ? `
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">
+                        ${parseFeatures(car.features).slice(0,4).map(f => `<span style="font-size:10px;font-weight:700;padding:3px 9px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.22);border-radius:20px;color:rgba(245,158,11,.95);letter-spacing:.02em;text-transform:uppercase">${esc(f)}</span>`).join('')}
                     </div>
-                ` : '<div style="height:10px"></div>'}
+                ` : '<div style="height:8px"></div>'}
+                ${S.ratings[car.id] ? `
+                    <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px">
+                        <div class="stars">${[1,2,3,4,5].map(i=>`<span class="star ${i<=Math.round(S.ratings[car.id].avg)?'on':''}">★</span>`).join('')}</div>
+                        <span style="font-size:12px;color:var(--muted)">${S.ratings[car.id].avg.toFixed(1)} (${S.ratings[car.id].count})</span>
+                    </div>
+                ` : ''}
                 <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:12px">
                     <div>
                         <span class="font-display font-extrabold" style="font-size:22px;color:var(--accent)">${fmtCur(car.price_per_day)}</span>
@@ -1682,10 +1764,6 @@ const Views = {
                 </div>
             </div>
         </div>`;
-    },
-
-    _initCitiesSection() {
-        CitySelector.initCitiesSection();
     },
 
     admin: () => `
@@ -1706,8 +1784,8 @@ const Views = {
                 <nav style="flex:1;display:flex;flex-direction:column;gap:2px" id="sidebar-nav">
                     ${(() => {
                         const r = S.profile?.role;
-                        if (r === 'admin')   return [['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['team','👥','Team & Access'],['settings','⚙️','Settings']];
-                        if (r === 'staff')   return [['bookings','📋','Bookings'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['settings','⚙️','Settings']];
+                        if (r === 'admin')   return [['bookings','📋','Bookings'],['analytics','📊','Analytics'],['calendar','📅','Calendar'],['reviews','⭐','Reviews'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['team','👥','Team & Access'],['settings','⚙️','Settings']];
+                        if (r === 'staff')   return [['bookings','📋','Bookings'],['analytics','📊','Analytics'],['cars','🚗','Fleet'],['inquiries','💬','Inquiries'],['settings','⚙️','Settings']];
                         /* partner */        return [['mycars','🚗','My Cars'],['earnings','💰','Earnings'],['copartners','👥','Co-Partners'],['settings','⚙️','Settings']];
                     })().map(([id,ic,lb]) => `
                         <button class="stab" id="stab-${id}" onclick="AdminCtrl.tab('${id}')">${ic} ${lb}</button>
@@ -1763,6 +1841,19 @@ const CarCtrl = {
             return;
         }
         S.allCars = data;
+        // Fetch aggregated star ratings
+        try {
+            const { data: rv } = await sb.from('reviews').select('car_id, rating').eq('is_approved', true);
+            if (rv && rv.length) {
+                const rmap = {};
+                rv.forEach(r => {
+                    if (!rmap[r.car_id]) rmap[r.car_id] = { sum: 0, count: 0 };
+                    rmap[r.car_id].sum += r.rating;
+                    rmap[r.car_id].count++;
+                });
+                Object.entries(rmap).forEach(([id, v]) => { S.ratings[id] = { avg: v.sum/v.count, count: v.count }; });
+            }
+        } catch(_) {}
         grid.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">${data.map(Views.carCard).join('')}</div>`;
     },
 
@@ -1799,14 +1890,30 @@ const CarCtrl = {
     },
 
     filter(cat) {
-        document.querySelectorAll('.chip').forEach(c => {
-            c.classList.toggle('active', c.dataset.cat === cat);
+        document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.cat === cat));
+        S.currentCat = cat;
+        CarCtrl.applyFilters();
+    },
+
+    applyFilters() {
+        const q      = (document.getElementById('car-search')?.value || '').toLowerCase();
+        const maxP   = parseInt(document.getElementById('price-max')?.value || '0') || 0;
+        const sortBy = document.getElementById('car-sort')?.value || '';
+        const cat    = S.currentCat || 'all';
+        let cars = S.allCars.filter(c => {
+            const matchCat = cat === 'all' || c.category === cat;
+            const matchQ   = !q || c.name.toLowerCase().includes(q) || (c.description||'').toLowerCase().includes(q) || (c.category||'').toLowerCase().includes(q) || parseFeatures(c.features).some(f=>f.toLowerCase().includes(q));
+            const matchP   = !maxP || c.price_per_day <= maxP;
+            return matchCat && matchQ && matchP;
         });
-        const cars = cat === 'all' ? S.allCars : S.allCars.filter(c => c.category === cat);
+        if (sortBy === 'price-asc')  cars = [...cars].sort((a,b) => a.price_per_day - b.price_per_day);
+        if (sortBy === 'price-desc') cars = [...cars].sort((a,b) => b.price_per_day - a.price_per_day);
+        if (sortBy === 'name')       cars = [...cars].sort((a,b) => a.name.localeCompare(b.name));
+        if (sortBy === 'rating')     cars = [...cars].sort((a,b) => (S.ratings[b.id]?.avg||0) - (S.ratings[a.id]?.avg||0));
         const grid = document.getElementById('cars-grid');
         if (!grid) return;
         if (!cars.length) {
-            grid.innerHTML = `<div style="text-align:center;padding:60px 20px;color:var(--muted)">No ${cat} cars listed yet.</div>`;
+            grid.innerHTML = `<div style="text-align:center;padding:60px 20px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)"><div style="font-size:40px;margin-bottom:12px">🔍</div><p>No cars match your search.</p></div>`;
             return;
         }
         grid.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">${cars.map(Views.carCard).join('')}</div>`;
@@ -1851,6 +1958,20 @@ const Booking = {
         const bkImg = document.getElementById('bk-img');
         if (bkImg) bkImg.src = imgs[0] || fallback;
 
+        S.addons = { driver: false, ins: false };
+        S.validReferral = null;
+        // Reset addon UI
+        ['driver','ins'].forEach(k => {
+            const row = document.getElementById('addon-' + k);
+            const chk = document.getElementById('addon-' + k + '-chk');
+            if (row) row.classList.remove('selected');
+            if (chk) chk.querySelector('svg').style.display = 'none';
+        });
+        const aw = document.getElementById('bk-addons-wrap');
+        if (aw) { aw.classList.add('hidden'); aw.style.display = ''; }
+        const atr = document.getElementById('addon-total-row'); if(atr) atr.style.display = 'none';
+        const rm = document.getElementById('bk-referral-msg'); if(rm) { rm.textContent=''; rm.style.color=''; }
+        const ri = document.getElementById('bk-referral'); if(ri) ri.value='';
         Modals.open('booking-modal');
 
         // Destroy old pickers
@@ -1858,9 +1979,25 @@ const Booking = {
         if (Booking.endPicker) { try { Booking.endPicker.destroy(); } catch(e){} }
 
         const today = new Date().toISOString().split('T')[0];
-        setTimeout(() => {
+        setTimeout(async () => {
+            // Fetch booked date ranges for this car
+            let disabledRanges = [];
+            try {
+                const { data: bks } = await sb.from('bookings')
+                    .select('start_date,end_date')
+                    .eq('car_id', car.id)
+                    .in('status', ['approved','pending']);
+                if (bks) disabledRanges = bks.map(b => ({ from: b.start_date, to: b.end_date }));
+            } catch(_) {}
+
             Booking.startPicker = flatpickr('#fp-start', {
                 minDate: today, dateFormat: 'Y-m-d',
+                disable: disabledRanges,
+                onDayCreate: (dObj, dStr, fp, dayElem) => {
+                    const d = dayElem.dateObj?.toISOString()?.split('T')[0];
+                    if (d && disabledRanges.some(r => d >= r.from && d <= r.to))
+                        dayElem.classList.add('booked');
+                },
                 onChange: ([d], str) => {
                     S.dates.s = str;
                     if (Booking.endPicker) Booking.endPicker.set('minDate', str);
@@ -1869,6 +2006,12 @@ const Booking = {
             });
             Booking.endPicker = flatpickr('#fp-end', {
                 minDate: today, dateFormat: 'Y-m-d',
+                disable: disabledRanges,
+                onDayCreate: (dObj, dStr, fp, dayElem) => {
+                    const d = dayElem.dateObj?.toISOString()?.split('T')[0];
+                    if (d && disabledRanges.some(r => d >= r.from && d <= r.to))
+                        dayElem.classList.add('booked');
+                },
                 onChange: ([d], str) => {
                     S.dates.e = str;
                     Booking.calcPrice();
@@ -1877,15 +2020,64 @@ const Booking = {
         }, 80);
     },
 
+    _addonTotal(d) {
+        let t = 0;
+        if (S.addons?.driver) t += 800 * d;
+        if (S.addons?.ins)    t += 300 * d;
+        return t;
+    },
+
+    toggleAddon(key) {
+        S.addons[key] = !S.addons[key];
+        const row = document.getElementById('addon-' + key);
+        const chk = document.getElementById('addon-' + key + '-chk');
+        if (row) row.classList.toggle('selected', S.addons[key]);
+        if (chk) chk.querySelector('svg').style.display = S.addons[key] ? 'block' : 'none';
+        Booking.calcPrice();
+    },
+
     calcPrice() {
         const { s, e } = S.dates;
         if (!s || !e) return;
         const d = days(s, e);
-        const total = d * S.car.price_per_day;
+        const base = d * S.car.price_per_day;
+        const addonAmt = Booking._addonTotal(d);
+        const disc = S.validReferral ? Math.round((base + addonAmt) * 0.05) : 0;
+        const total = base + addonAmt - disc;
         document.getElementById('est-days').textContent = `${d} day${d>1?'s':''}`;
         document.getElementById('est-rate').textContent = fmtCur(S.car.price_per_day) + '/day';
         document.getElementById('est-total').textContent = fmtCur(total);
         document.getElementById('bk-price-box').classList.remove('hidden');
+        const aRow = document.getElementById('addon-total-row');
+        if (aRow) { aRow.style.display = addonAmt > 0 ? 'flex' : 'none'; document.getElementById('est-addon-total').textContent = fmtCur(addonAmt); }
+        const aw = document.getElementById('bk-addons-wrap');
+        if (aw) { aw.classList.remove('hidden'); aw.style.display = 'flex'; }
+    },
+
+    async applyReferral() {
+        const code = (document.getElementById('bk-referral')?.value || '').trim().toUpperCase();
+        const msg  = document.getElementById('bk-referral-msg');
+        if (!code) return;
+        const { data, error } = await sb.from('referrals').select('*').eq('code', code).maybeSingle();
+        if (error || !data) {
+            S.validReferral = null;
+            if (msg) { msg.textContent = 'Invalid referral code.'; msg.style.color = 'var(--red)'; }
+        } else {
+            S.validReferral = data;
+            if (msg) { msg.textContent = '✓ 5% discount applied!'; msg.style.color = 'var(--green)'; }
+            Booking.calcPrice();
+            // Update summary discount row
+            const { s, e } = S.dates;
+            if (s && e) {
+                const d = days(s,e);
+                const base = d * S.car.price_per_day + Booking._addonTotal(d);
+                const disc = Math.round(base * 0.05);
+                const dr = document.getElementById('sum-discount-row'), dv = document.getElementById('sum-discount-val');
+                if (dr) dr.style.display = 'flex';
+                if (dv) dv.textContent = '-' + fmtCur(disc);
+                document.getElementById('sum-total').textContent = fmtCur(base - disc);
+            }
+        }
     },
 
     setStep(n) {
@@ -1908,136 +2100,277 @@ const Booking = {
         if (!s) return toast('Please select a pickup date.', 'error');
         if (!e) return toast('Please select a return date.', 'error');
         if (new Date(e) <= new Date(s)) return toast('Return date must be after pickup date.', 'error');
-
         const d = days(s, e);
+        const addonAmt  = Booking._addonTotal(d);
+        const addonNames = [S.addons?.driver&&'Driver', S.addons?.ins&&'Insurance'].filter(Boolean);
         document.getElementById('sum-car').textContent = S.car.name;
-        document.getElementById('sum-dates').textContent = `${fmtDate(s)} → ${fmtDate(e)}`;
+        document.getElementById('sum-dates').textContent = `${fmtDate(s)} \u2192 ${fmtDate(e)}`;
         document.getElementById('sum-dur').textContent = `${d} day${d>1?'s':''}`;
-        document.getElementById('sum-total').textContent = fmtCur(d * S.car.price_per_day);
+        document.getElementById('sum-total').textContent = fmtCur(d * S.car.price_per_day + addonAmt);
+        const ar = document.getElementById('sum-addons-row'), av = document.getElementById('sum-addons-val');
+        if (ar) ar.style.display = addonNames.length ? 'flex' : 'none';
+        if (av) av.textContent = addonNames.join(', ');
         Booking.setStep(2);
     },
 
     prevStep() { Booking.setStep(1); },
 
     async submit() {
-        const name  = document.getElementById('bk-cname').value.trim();
-        const phone = document.getElementById('bk-cphone').value.trim();
-        const email = document.getElementById('bk-cemail').value.trim();
-        const msg   = document.getElementById('bk-cmsg').value.trim();
+        const name     = document.getElementById('bk-cname').value.trim();
+        const phone    = document.getElementById('bk-cphone').value.trim();
+        const email    = document.getElementById('bk-cemail').value.trim();
+        const msg      = document.getElementById('bk-cmsg').value.trim();
+        const location = (document.getElementById('bk-location')?.value || '').trim();
 
         if (!name)               return toast('Please enter your name.', 'error');
         if (phone.length < 8)    return toast('Please enter a valid phone number.', 'error');
         if (!email.includes('@'))return toast('Please enter a valid email address.', 'error');
+        if (!location)           return toast('Please enter a pickup location.', 'error');
 
         const { s, e } = S.dates;
-        const d = days(s, e);
-        const total = d * S.car.price_per_day;
+        const d        = days(s, e);
+        const base     = d * S.car.price_per_day;
+        const addonAmt = Booking._addonTotal(d);
+        const disc     = S.validReferral ? Math.round((base + addonAmt) * 0.05) : 0;
+        const total    = base + addonAmt - disc;
+
+        const selectedAddons = [
+            S.addons?.driver && { name: 'Driver', price: 800 },
+            S.addons?.ins    && { name: 'Zero Excess Insurance', price: 300 },
+        ].filter(Boolean);
+
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let bookingRef = 'CRZ-';
+        for (let i = 0; i < 8; i++) bookingRef += chars[Math.floor(Math.random() * chars.length)];
 
         const record = {
-            car_id: S.car.id,
-            car_name: S.car.name,
-            customer_name: name,
-            customer_phone: phone,
-            customer_email: email,
-            start_date: s,
-            end_date: e,
-            total_days: d,
-            estimated_price: total,
+            car_id: S.car.id, car_name: S.car.name,
+            customer_name: name, customer_phone: phone, customer_email: email,
+            start_date: s, end_date: e, total_days: d, estimated_price: total,
             message: msg || null,
+            pickup_location: location,
+            addons: selectedAddons.length ? selectedAddons : null,
+            referral_code: S.validReferral?.code || null,
+            booking_ref: bookingRef,
             status: 'pending',
-            booking_city: S.selectedCity || 'Chennai',
         };
 
         setBtn('bk-submit-btn', `<span class="spinner"></span> Submitting...`, true);
-
         try {
-            // 1. Save to Supabase
-            // Split insert and select — some RLS configs block combined insert().select()
             const { error: dbErr } = await sb.from('bookings').insert([record]);
             if (dbErr) throw dbErr;
-            // Best-effort fetch for email data — fall back to local record if RLS blocks select
+
+            // Increment referral usage
+            if (S.validReferral?.id) {
+                sb.from('referrals').update({ times_used: (S.validReferral.times_used||0) + 1 }).eq('id', S.validReferral.id).then(()=>{});
+            }
+            // Ensure customer has a referral code for future use
+            const refCode = 'CRZ' + name.replace(/\s+/g,'').slice(0,4).toUpperCase() + Math.floor(1000+Math.random()*9000);
+            sb.from('referrals').insert({ code: refCode, owner_email: email, owner_name: name }).then(()=>{});
+
             let fullRecord = { ...record, created_at: new Date().toISOString() };
             try {
-                const { data: inserted } = await sb.from('bookings')
-                    .select('*').eq('customer_email', email).eq('car_id', S.car.id)
-                    .order('created_at', { ascending: false }).limit(1).single();
-                if (inserted) fullRecord = inserted;
+                const { data: ins } = await sb.from('bookings').select('*').eq('customer_email', email).eq('car_id', S.car.id).order('created_at',{ascending:false}).limit(1).single();
+                if (ins) fullRecord = ins;
             } catch(_) {}
 
-            // 1b. Silently capture IP-based location (no permission prompt, non-blocking)
-            Geo.captureIP(fullRecord.id || null);
-
-            // 2. Formspree — backup admin notification (independent of email service)
             if (CFG.FORMSPREE && CFG.FORMSPREE !== 'YOUR_FORMSPREE_FORM_ID') {
                 fetch(`https://formspree.io/f/${CFG.FORMSPREE}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({
-                        _subject: `🚗 New Booking — ${S.car.name}`,
-                        Customer: name, Phone: phone, Email: email,
-                        Car: S.car.name, Category: S.car.category,
-                        Pickup: fmtDate(s), Return: fmtDate(e),
-                        Days: `${d} days`, Total: fmtCur(total),
-                        Message: msg || 'None',
-                    }),
-                }).catch(() => {});
+                    method:'POST', headers:{'Content-Type':'application/json','Accept':'application/json'},
+                    body: JSON.stringify({ _subject:`New Booking — ${S.car.name} (${bookingRef})`, 'Booking ID':bookingRef, Customer:name, Phone:phone, Email:email, Car:S.car.name, Pickup:fmtDate(s), Return:fmtDate(e), Days:`${d}`, Total:fmtCur(total), Addons:selectedAddons.map(a=>a.name).join(',')||'None', Location:location, Message:msg||'None' }),
+                }).catch(()=>{});
             }
-
-            // 3. Emails — fire-and-forget, never block the UI
-            //    Customer gets booking received confirmation
-            //    All admins get new booking alert
-            //    Both are independent — if one fails the other still fires
             Email.bookingReceived(fullRecord, total);
             Email.adminNewBooking(fullRecord, total);
 
-            // 3. Prefill WhatsApp link
+            const addonLine = selectedAddons.length ? '\n\u2795 *Add-ons:* ' + selectedAddons.map(a=>a.name).join(', ') : '';
+            const discLine  = disc ? '\n\uD83C\uDF89 *Referral discount:* -' + fmtCur(disc) : '';
             const waMsg = encodeURIComponent(
-                `Hi Cruzio! 👋 I'd like to confirm my car rental booking.\n\n` +
-                `🚗 *Car:* ${S.car.name}\n` +
-                `📅 *Pickup:* ${fmtDate(s)}\n` +
-                `🏁 *Return:* ${fmtDate(e)}\n` +
-                `⏱ *Duration:* ${d} day${d>1?'s':''}\n` +
-                `💰 *Est. Total:* ${fmtCur(total)}\n\n` +
-                `👤 *Name:* ${name}\n` +
-                `📱 *Phone:* ${phone}\n` +
-                (msg ? `📝 *Note:* ${msg}\n\n` : '\n') +
-                `Please confirm my slot. Thank you!`
+                'Hi Cruzio! \uD83D\uDC4B I\'d like to confirm my booking.\n' +
+                '\uD83D\uDCCB *Booking ID:* ' + bookingRef + '\n\n' +
+                '\uD83D\uDE97 *Car:* ' + S.car.name + '\n' +
+                '\uD83D\uDCC5 *Pickup:* ' + fmtDate(s) + '\n' +
+                '\uD83C\uDFC1 *Return:* ' + fmtDate(e) + '\n' +
+                '\u23F1 *Duration:* ' + d + ' day' + (d>1?'s':'') +
+                addonLine + discLine + '\n' +
+                '\uD83D\uDCB0 *Est. Total:* ' + fmtCur(total) + '\n\n' +
+                '\uD83D\uDC64 *Name:* ' + name + '\n' +
+                '\uD83D\uDCF1 *Phone:* ' + phone + '\n' +
+                '\uD83D\uDCCD *Pickup location:* ' + location + '\n' +
+                (msg ? '\uD83D\uDCDD *Note:* ' + msg + '\n' : '') +
+                'Please confirm my slot. Thank you!'
             );
-            // Use partner's WA if car is partner-owned and they set one, else global, else default
-            const carOwnerId = S.car?.owner_id;
-            const partnerWA  = carOwnerId && S.settings['partner_' + carOwnerId]?.booking_wa;
-            const waNum      = (partnerWA || S.settings.global?.booking_wa || '919605370108').replace(/\D/g,'');
+            const waNum = (S.settings.global?.booking_wa || '919605370108').replace(/[^0-9]/g,'');
             document.getElementById('bk-wa-link').href = 'https://wa.me/' + waNum + '?text=' + waMsg;
 
-            // 4. Success summary
+            const addonLines = selectedAddons.map(a => `<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--muted)">${esc(a.name)}</span><span>${fmtCur(a.price*d)}</span></div>`).join('');
+            const discLine2  = disc ? `<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--green)">Referral discount (5%)</span><span style="color:var(--green)">-${fmtCur(disc)}</span></div>` : '';
             document.getElementById('bk-success-summary').innerHTML = `
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Car</span><strong>${esc(S.car.name)}</strong></div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Dates</span><span>${fmtDate(s)} → ${fmtDate(e)}</span></div>
-                <div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="color:var(--muted)">Duration</span><span>${d} day${d>1?'s':''}</span></div>
-                <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)"><strong>Estimated Total</strong><strong style="color:var(--accent)">${fmtCur(total)}</strong></div>
+                <div style="text-align:center;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+                    <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">Booking ID</div>
+                    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:8px 16px">
+                        <span style="font-family:monospace;font-size:20px;font-weight:800;letter-spacing:.1em;color:var(--accent)">${bookingRef}</span>
+                    </div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:5px">Save this to track your booking</div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--muted)">Car</span><strong>${esc(S.car.name)}</strong></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--muted)">Dates</span><span>${fmtDate(s)} \u2192 ${fmtDate(e)}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--muted)">Duration</span><span>${d} day${d>1?'s':''}</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:var(--muted)">Base price</span><span>${fmtCur(base)}</span></div>
+                ${addonLines}${discLine2}
+                <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border);margin-top:4px">
+                    <strong>Estimated Total</strong><strong style="color:var(--accent)">${fmtCur(total)}</strong>
+                </div>
+                <div style="margin-top:12px;padding:10px 12px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.18);border-radius:8px;font-size:12px;color:var(--muted)">
+                    \uD83C\uDF81 <strong>Your referral code:</strong> <code style="font-family:monospace;color:var(--accent)">${refCode}</code> — share it to earn rewards!
+                </div>
             `;
-
             Booking.setStep(3);
-            // Offer push notifications after successful booking (non-intrusive)
-            setTimeout(() => PushNotif.offerAfterBooking(), 2500);
-
         } catch(err) {
-            console.error('[Booking.submit] ERROR:', err);
-            const msg = err?.message || err?.details || String(err) || '';
-            // Show the real error in dev, friendly message in prod
-            const friendly = msg.includes('network') || msg.includes('fetch')
-                ? 'Network error — check your connection and try again.'
-                : msg.includes('violates') || msg.includes('constraint')
-                ? 'Booking data invalid: ' + msg
-                : msg.includes('policy') || msg.includes('permission') || msg.includes('denied')
-                ? 'Permission error — please contact support. (' + msg + ')'
-                : msg
-                ? 'Error: ' + msg
-                : 'Could not save booking — please WhatsApp or call us directly.';
-            toast(friendly, 'error');
+            const m = err?.message || '';
+            toast(m.includes('network')||m.includes('fetch') ? 'Network error — check your connection.' : m.includes('policy')||m.includes('denied') ? 'Permission error: ' + m : m ? 'Error: ' + m : 'Could not save — please WhatsApp us directly.', 'error');
+        }
+        setBtn('bk-submit-btn', 'Confirm Request', false);
+    }
+};
+
+// ────────────────────────────────────────────────
+//  CUSTOMER PORTAL
+// ────────────────────────────────────────────────
+const CustomerPortal = {
+    open() { Modals.open('portal-modal'); },
+
+    async lookup() {
+        const email = document.getElementById('portal-email')?.value?.trim();
+        const phone = document.getElementById('portal-phone')?.value?.trim();
+        if (!email && !phone) return toast('Enter your email or phone number.', 'error');
+        setBtn('portal-lookup-btn', `<span class="spinner"></span> Looking up...`, true);
+
+        let q = sb.from('bookings').select('*').order('created_at', { ascending: false });
+        if (email) q = q.eq('customer_email', email);
+        else q = q.eq('customer_phone', phone);
+        const { data: bks, error } = await q;
+        setBtn('portal-lookup-btn', 'Find My Bookings \u2192', false);
+
+        const res = document.getElementById('portal-results');
+        const inner = document.getElementById('portal-results-inner');
+        document.getElementById('portal-lookup').classList.add('hidden');
+        res.classList.remove('hidden');
+
+        if (error || !bks || !bks.length) {
+            inner.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--muted)">
+                <div style="font-size:40px;margin-bottom:12px">🔍</div>
+                <p>No bookings found for that email/phone.</p>
+                <button onclick="CustomerPortal._reset()" class="btn btn-ghost btn-sm" style="margin-top:16px">← Try Again</button>
+            </div>`;
+            return;
         }
 
-        setBtn('bk-submit-btn', 'Confirm Request', false);
+        // Fetch referral code for this customer
+        const cEmail = bks[0]?.customer_email;
+        let refCode = null;
+        if (cEmail) {
+            const { data: ref } = await sb.from('referrals').select('code').eq('owner_email', cEmail).maybeSingle();
+            refCode = ref?.code;
+        }
+
+        const statusColor = { approved:'var(--green)', pending:'var(--accent)', rejected:'var(--red)', cancelled:'var(--muted)' };
+        inner.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <div>
+                    <h3 class="font-display font-bold">${bks[0].customer_name}</h3>
+                    <p style="font-size:12px;color:var(--muted)">${bks.length} booking${bks.length!==1?'s':''}</p>
+                </div>
+                <button onclick="CustomerPortal._reset()" class="btn btn-ghost btn-sm">\u2190 Back</button>
+            </div>
+
+            ${refCode ? `<div style="margin-bottom:16px;padding:12px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <div><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px">Your Referral Code</div>
+                <code style="font-family:monospace;font-size:16px;font-weight:800;color:var(--accent)">${esc(refCode)}</code></div>
+                <button onclick="navigator.clipboard?.writeText('${esc(refCode)}').then(()=>toast('Copied!'))" class="btn btn-ghost btn-sm">Copy</button>
+            </div>` : ''}
+
+            ${bks.map(b => `
+            <div class="portal-bk-card status-${b.status}">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+                    <div>
+                        <span class="font-display font-bold">${esc(b.car_name)}</span>
+                        ${b.booking_ref ? `<code style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(245,158,11,.1);padding:2px 7px;border-radius:5px;margin-left:6px">${esc(b.booking_ref)}</code>` : ''}
+                    </div>
+                    <span class="badge badge-${b.status}">${b.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+                    ${fmtDate(b.start_date)} \u2192 ${fmtDate(b.end_date)} &nbsp;·&nbsp; ${b.total_days} day${b.total_days!==1?'s':''}
+                    &nbsp;·&nbsp; <strong style="color:var(--accent)">${fmtCur(b.estimated_price)}</strong>
+                </div>
+                ${b.pickup_location ? `<div style="font-size:11px;color:var(--muted);margin-bottom:6px">\uD83D\uDCCD ${esc(b.pickup_location)}</div>` : ''}
+                ${b.cancellation_reason ? `<div style="font-size:11px;color:var(--red);margin-bottom:6px">\u274C ${esc(b.cancellation_reason)}</div>` : ''}
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                    ${b.status === 'pending' ? `<button onclick="CustomerPortal.selfCancel('${esc(b.id)}')" class="btn btn-danger btn-sm">Cancel Booking</button>` : ''}
+                    ${b.status === 'approved' ? `<button onclick="CustomerPortal.openReview('${esc(b.id)}','${esc(b.car_id)}','${esc(b.car_name)}')" class="btn btn-ghost btn-sm">\u2605 Write Review</button>` : ''}
+                </div>
+            </div>`).join('')}
+        `;
+    },
+
+    async selfCancel(id) {
+        const reason = prompt('Why are you cancelling? (optional)') ?? '';
+        if (reason === null) return;
+        const { error } = await sb.from('bookings').update({ status: 'cancelled', cancellation_reason: reason || 'Cancelled by customer', cancelled_by: 'customer' }).eq('id', id);
+        if (error) return toast('Failed to cancel: ' + error.message, 'error');
+        toast('Booking cancelled.');
+        CustomerPortal.lookup();
+    },
+
+    openReview(bookingId, carId, carName) {
+        const cName = document.getElementById('portal-email')?.value?.trim() || '';
+        const cEmail = document.getElementById('portal-email')?.value?.trim() || '';
+        const inner = document.getElementById('portal-results-inner');
+        const existingForm = document.getElementById('review-form-wrap');
+        if (existingForm) { existingForm.scrollIntoView({ behavior: 'smooth' }); return; }
+        const wrap = document.createElement('div');
+        wrap.id = 'review-form-wrap';
+        wrap.style = 'margin-top:16px;padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:12px';
+        wrap.innerHTML = `
+            <div style="font-weight:700;margin-bottom:12px">\u2605 Review ${esc(carName)}</div>
+            <div style="display:flex;gap:6px;margin-bottom:12px" id="star-picker">
+                ${[1,2,3,4,5].map(i=>`<button onclick="CustomerPortal._setStar(${i})" data-star="${i}" style="font-size:24px;background:none;border:none;cursor:pointer;color:var(--border);padding:0;transition:color .15s">\u2605</button>`).join('')}
+            </div>
+            <textarea id="review-comment" class="inp" placeholder="Share your experience..." style="margin-bottom:10px"></textarea>
+            <button onclick="CustomerPortal.submitReview('${esc(bookingId)}','${esc(carId)}','${esc(carName)}')" class="btn btn-primary" style="width:100%">Submit Review</button>
+        `;
+        inner.appendChild(wrap);
+        wrap.scrollIntoView({ behavior: 'smooth' });
+        CustomerPortal._selectedStar = 0;
+    },
+
+    _setStar(n) {
+        CustomerPortal._selectedStar = n;
+        document.querySelectorAll('#star-picker button').forEach((b, i) => {
+            b.style.color = i < n ? '#f59e0b' : 'var(--border)';
+        });
+    },
+    _selectedStar: 0,
+
+    async submitReview(bookingId, carId, carName) {
+        const rating  = CustomerPortal._selectedStar;
+        const comment = document.getElementById('review-comment')?.value?.trim() || '';
+        const email   = document.getElementById('portal-email')?.value?.trim() || '';
+        const bk      = await sb.from('bookings').select('customer_name,customer_email').eq('id', bookingId).single();
+        const cName   = bk.data?.customer_name || 'Customer';
+        const cEmail  = bk.data?.customer_email || email;
+        if (!rating) return toast('Please select a star rating.', 'error');
+        const { error } = await sb.from('reviews').insert({ car_id: carId, car_name: carName, booking_id: bookingId, customer_name: cName, customer_email: cEmail, rating, comment: comment || null });
+        if (error) return toast('Error: ' + error.message, 'error');
+        toast('\u2605 Review submitted — thank you! It will appear after approval.');
+        document.getElementById('review-form-wrap')?.remove();
+    },
+
+    _reset() {
+        document.getElementById('portal-lookup')?.classList?.remove('hidden');
+        document.getElementById('portal-results')?.classList?.add('hidden');
+        document.getElementById('portal-email').value = '';
+        document.getElementById('portal-phone').value = '';
     }
 };
 
@@ -2243,6 +2576,9 @@ const AdminCtrl = {
         if (name === 'mycars')     { role === 'partner'                ? AdminCtrl.myCars()     : AdminCtrl._accessDenied(); return; }
         if (name === 'earnings')   { role === 'partner'                ? AdminCtrl.earnings()   : AdminCtrl._accessDenied(); return; }
         if (name === 'copartners') { role === 'partner'                ? AdminCtrl.coPartners() : AdminCtrl._accessDenied(); return; }
+        if (name === 'analytics')  { ['admin','staff'].includes(role) ? AdminCtrl.analytics()        : AdminCtrl._accessDenied(); return; }
+        if (name === 'calendar')   { ['admin','staff'].includes(role) ? AdminCtrl.bookingCalendar()  : AdminCtrl._accessDenied(); return; }
+        if (name === 'reviews')    { role === 'admin'                  ? AdminCtrl.manageReviews()   : AdminCtrl._accessDenied(); return; }
         if (name === 'settings')   { AdminCtrl.settings(); return; }
     },
 
@@ -2287,13 +2623,18 @@ const AdminCtrl = {
         `;
     },
 
-    bookingCard: (b) => `
-        <div style="background:var(--card);border:1px solid ${b.status === 'pending' ? 'rgba(245,158,11,.35)' : 'var(--border)'};border-radius:14px;padding:16px;${b.status==='pending'?'border-left:3px solid var(--accent)':''}">
+    bookingCard: (b) => {
+        const addons = Array.isArray(b.addons) && b.addons.length ? b.addons : null;
+        const borderColor = b.status==='pending' ? 'rgba(245,158,11,.35)' : b.status==='cancelled' ? 'rgba(107,107,114,.2)' : 'var(--border)';
+        const leftBorder  = b.status==='pending' ? 'border-left:3px solid var(--accent)' : b.status==='cancelled' ? 'border-left:3px solid var(--muted)' : '';
+        return `
+        <div style="background:var(--card);border:1px solid ${borderColor};border-radius:14px;padding:16px;${leftBorder}">
             <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px">
                 <div style="flex:1;min-width:0">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
                         <span class="font-display font-bold">${esc(b.customer_name)}</span>
                         <span class="badge badge-${b.status}">${b.status.toUpperCase()}</span>
+                        ${b.booking_ref ? `<code style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(245,158,11,.1);padding:2px 7px;border-radius:5px;border:1px solid rgba(245,158,11,.2);letter-spacing:.06em">${esc(b.booking_ref)}</code>` : ''}
                     </div>
                     <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:13px;color:var(--muted);margin-bottom:4px">
                         <span>🚗 <strong style="color:var(--fg)">${esc(b.car_name)}</strong></span>
@@ -2301,30 +2642,34 @@ const AdminCtrl = {
                         <span>⏱ ${b.total_days} day${b.total_days>1?'s':''}</span>
                         <span class="font-bold" style="color:var(--accent)">${fmtCur(b.estimated_price)}</span>
                     </div>
+                    ${addons ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">➕ ${addons.map(a=>esc(a.name)).join(' · ')}</div>` : ''}
+                    ${b.pickup_location ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">📍 ${esc(b.pickup_location)}</div>` : ''}
                     <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted)">
                         <span>📱 <a href="tel:${esc(b.customer_phone)}" style="color:var(--accent);text-decoration:none">${esc(b.customer_phone)}</a></span>
                         <span>✉ <a href="mailto:${esc(b.customer_email)}" style="color:var(--muted);text-decoration:none">${esc(b.customer_email)}</a></span>
                     </div>
                     ${b.message ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;font-style:italic">"${esc(b.message)}"</div>` : ''}
+                    ${b.cancellation_reason ? `<div style="font-size:12px;color:var(--red);margin-top:4px">❌ ${esc(b.cancellation_reason)}</div>` : ''}
                     <div style="font-size:11px;color:var(--muted);margin-top:4px">${new Date(b.created_at).toLocaleString('en-IN')}</div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
                     <div style="display:flex;gap:6px;flex-wrap:wrap">
                         <a href="tel:${esc(b.customer_phone)}" class="btn btn-ghost btn-sm" style="text-decoration:none">📞 Call</a>
-                        <a href="https://wa.me/91${b.customer_phone.replace(/\D/g,'').replace(/^91/,'')}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">📱 WhatsApp Customer</a>
+                        <a href="https://wa.me/91${b.customer_phone.replace(/\D/g,'').replace(/^91/,'')}" target="_blank" class="btn btn-ghost btn-sm" style="text-decoration:none">📱 WhatsApp</a>
                     </div>
                     ${b.status === 'pending' ? `
                         <div style="display:flex;gap:6px">
                             <button class="btn btn-success" onclick="AdminCtrl.updateBooking('${esc(b.id)}','approved')">✓ Approve</button>
                             <button class="btn btn-danger" onclick="AdminCtrl.updateBooking('${esc(b.id)}','rejected')">✕ Reject</button>
-                            ${S.profile?.role === 'admin' ? `<button onclick="AdminCtrl.deleteBooking('${esc(b.id)}')" class="btn btn-danger btn-sm" title="Delete booking permanently">🗑</button>` : ''}
+                            ${S.profile?.role === 'admin' ? `<button onclick="AdminCtrl.deleteBooking('${esc(b.id)}')" class="btn btn-danger btn-sm" title="Delete">🗑</button>` : ''}
                         </div>
                     ` : ''}
-                    ${b.status !== 'pending' ? `<button class="btn btn-ghost btn-sm" onclick="AdminCtrl.updateBooking('${esc(b.id)}','pending')">Revert to Pending</button>` : ''}
+                    ${b.status === 'approved' ? `<button class="btn btn-danger btn-sm" onclick="AdminCtrl.cancelBooking('${esc(b.id)}')">Cancel Booking</button>` : ''}
+                    ${b.status !== 'pending' && b.status !== 'cancelled' ? `<button class="btn btn-ghost btn-sm" onclick="AdminCtrl.updateBooking('${esc(b.id)}','pending')">Revert to Pending</button>` : ''}
                 </div>
             </div>
-        </div>
-    `,
+        </div>`;
+    },
 
     async updateBooking(id, status) {
         try {
@@ -3512,6 +3857,141 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         setBtn('st-save', 'Save Profile', false);
     },
 
+    async cancelBooking(id) {
+        const reason = prompt('Cancellation reason:');
+        if (reason === null) return;
+        const { error } = await sb.from('bookings').update({ status: 'cancelled', cancellation_reason: reason || 'Cancelled by admin', cancelled_by: 'admin' }).eq('id', id);
+        if (error) return toast('Error: ' + error.message, 'error');
+        toast('Booking cancelled.');
+        AdminCtrl.bookings();
+    },
+
+    async analytics() {
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+        const { data: all } = await sb.from('bookings').select('*').order('created_at');
+        const bk = all || [];
+        const approved = bk.filter(b => b.status==='approved');
+        const pending  = bk.filter(b => b.status==='pending');
+        const totalRev = approved.reduce((s,b) => s+(b.estimated_price||0), 0);
+        const avgVal   = approved.length ? Math.round(totalRev/approved.length) : 0;
+
+        // Monthly revenue (last 6 months)
+        const now = new Date();
+        const months = [], revByMonth = [];
+        for (let i=5; i>=0; i--) {
+            const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+            months.push(d.toLocaleDateString('en-IN',{month:'short'}));
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const rev = approved.filter(b => b.created_at?.startsWith(key)).reduce((s,b)=>s+(b.estimated_price||0),0);
+            revByMonth.push(rev);
+        }
+
+        // Top cars by revenue
+        const carRev = {};
+        approved.forEach(b => { carRev[b.car_name] = (carRev[b.car_name]||0) + (b.estimated_price||0); });
+        const topCars = Object.entries(carRev).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+        c.innerHTML = `
+        <div style="margin-bottom:24px"><h2 class="font-display text-2xl font-extrabold">Analytics</h2><p class="text-sm mt-1" style="color:var(--muted)">Revenue & booking overview</p></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:28px">
+            ${[
+                ['\uD83D\uDCB0 Total Revenue', fmtCur(totalRev), 'var(--accent)', approved.length + ' approved'],
+                ['\uD83D\uDCC5 This Month', fmtCur(revByMonth.at(-1)||0), 'var(--green)', 'revenue'],
+                ['\uD83D\uDCCA Avg Booking', fmtCur(avgVal), 'var(--fg)', 'per booking'],
+                ['\u23F3 Pending', pending.length, 'var(--accent)', 'awaiting action'],
+                ['\uD83D\uDE97 Total Bookings', bk.length, 'var(--muted)', 'all time'],
+            ].map(([lbl,val,col,sub])=>`
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center">
+                <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${lbl}</div>
+                <div class="font-display font-extrabold text-2xl" style="color:${col}">${val}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:4px">${sub}</div>
+            </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+                <div style="font-size:13px;font-weight:700;margin-bottom:16px">Revenue (Last 6 Months)</div>
+                <canvas id="rev-chart" height="180"></canvas>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+                <div style="font-size:13px;font-weight:700;margin-bottom:16px">Booking Status</div>
+                <canvas id="status-chart" height="180"></canvas>
+            </div>
+        </div>
+        ${topCars.length ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:14px">Top Cars by Revenue</div>
+            ${topCars.map(([name,rev],i)=>{const pct=topCars[0][1]?Math.round(rev/topCars[0][1]*100):0;return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--muted);width:16px">${i+1}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div><div style="height:4px;background:var(--border);border-radius:4px;margin-top:4px"><div style="height:4px;background:var(--accent);border-radius:4px;width:${pct}%"></div></div></div><div style="font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0">${fmtCur(rev)}</div></div>`;}).join('')}
+        </div>` : ''}
+        `;
+
+        // Chart.js — load if needed
+        const drawCharts = () => {
+            const Chart = window.Chart;
+            if (!Chart) return;
+            new Chart(document.getElementById('rev-chart'), { type:'bar', data:{ labels:months, datasets:[{ data:revByMonth, backgroundColor:'rgba(245,158,11,.7)', borderColor:'rgba(245,158,11,1)', borderWidth:1.5, borderRadius:4 }] }, options:{ plugins:{legend:{display:false}}, scales:{ y:{ticks:{color:'#6b6b72',callback:v=>'₹'+(v>=1000?Math.round(v/1000)+'k':v)},grid:{color:'rgba(255,255,255,.04)'}}, x:{ticks:{color:'#6b6b72'},grid:{display:false}} }, responsive:true, maintainAspectRatio:false } });
+            const cancelled = bk.filter(b=>b.status==='cancelled').length, rejected = bk.filter(b=>b.status==='rejected').length;
+            new Chart(document.getElementById('status-chart'), { type:'doughnut', data:{ labels:['Approved','Pending','Rejected','Cancelled'], datasets:[{ data:[approved.length, pending.length, rejected, cancelled], backgroundColor:['rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(239,68,68,.7)','rgba(107,107,114,.5)'], borderWidth:0 }] }, options:{ plugins:{legend:{position:'bottom',labels:{color:'#6b6b72',padding:12,font:{size:11}}}}, responsive:true, maintainAspectRatio:false } });
+        };
+        if (!window.Chart) {
+            const s = document.createElement('script');
+            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+            s.onload = drawCharts;
+            document.head.appendChild(s);
+        } else { setTimeout(drawCharts, 50); }
+    },
+
+    async bookingCalendar() {
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+        const { data } = await sb.from('bookings').select('*').order('start_date');
+        const all = data || [];
+        let vy = new Date().getFullYear(), vm = new Date().getMonth();
+        const render = () => {
+            const mStart = new Date(vy,vm,1), mEnd = new Date(vy,vm+1,0);
+            const mName  = mStart.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+            const mBks   = all.filter(b => b.start_date && b.end_date && new Date(b.start_date)<=mEnd && new Date(b.end_date)>=mStart);
+            let cells = '';
+            for (let i=0;i<mStart.getDay();i++) cells += '<div></div>';
+            for (let day=1;day<=mEnd.getDate();day++) {
+                const ds = `${vy}-${String(vm+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+                const isToday = ds === new Date().toISOString().split('T')[0];
+                const dBks = mBks.filter(b => ds>=b.start_date && ds<=b.end_date);
+                cells += `<div style="min-height:70px;border:1px solid ${isToday?'rgba(245,158,11,.5)':'var(--border)'};border-radius:8px;padding:5px;background:${isToday?'rgba(245,158,11,.05)':'var(--card)'}"><div style="font-size:11px;font-weight:${isToday?'800':'600'};color:${isToday?'var(--accent)':'var(--fg)'};margin-bottom:3px">${day}</div>${dBks.slice(0,2).map(b=>`<div style="font-size:9px;padding:2px 5px;border-radius:3px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:${b.status==='approved'?'rgba(34,197,94,.15)':'rgba(245,158,11,.15)'};color:${b.status==='approved'?'var(--green)':'var(--accent)'}">${esc(b.car_name.split(' ').slice(0,2).join(' '))}</div>`).join('')}${dBks.length>2?`<div style="font-size:9px;color:var(--muted)">+${dBks.length-2}</div>`:''}</div>`;
+            }
+            c.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px"><div><h2 class="font-display text-2xl font-extrabold">Booking Calendar</h2><p class="text-sm mt-1" style="color:var(--muted)">${mBks.length} booking${mBks.length!==1?'s':''} this month</p></div><div style="display:flex;align-items:center;gap:8px"><button onclick="window._calNav(-1)" class="btn btn-ghost btn-sm">\u2190 Prev</button><span style="font-weight:700;font-size:13px;min-width:140px;text-align:center">${mName}</span><button onclick="window._calNav(1)" class="btn btn-ghost btn-sm">Next \u2192</button></div></div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);padding:5px 0">${d}</div>`).join('')}</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${cells}</div>`;
+        };
+        window._calNav = dir => { vm+=dir; if(vm>11){vm=0;vy++;}else if(vm<0){vm=11;vy--;} render(); };
+        render();
+    },
+
+    async manageReviews() {
+        const c = document.getElementById('admin-content');
+        c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+        const { data: rvs } = await sb.from('reviews').select('*').order('created_at', { ascending: false });
+        const all = rvs || [];
+        const pending  = all.filter(r => !r.is_approved);
+        const approved = all.filter(r => r.is_approved);
+        const stars = n => '\u2605'.repeat(n) + '\u2606'.repeat(5-n);
+        const card = r => `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+                <div><div style="font-weight:700">${esc(r.customer_name)}</div>
+                <div style="font-size:12px;color:var(--muted)">${esc(r.car_name||'')} \u00B7 ${new Date(r.created_at).toLocaleDateString('en-IN')}</div>
+                <div style="color:var(--accent);font-size:14px;margin-top:4px">${stars(r.rating)}</div>
+                ${r.comment?`<div style="font-size:13px;margin-top:6px;color:var(--muted)">"${esc(r.comment)}"</div>`:''}</div>
+                <div style="display:flex;gap:6px">
+                    ${!r.is_approved ? `<button onclick="AdminCtrl._approveReview('${r.id}')" class="btn btn-success btn-sm">\u2713 Approve</button>` : `<span class="badge badge-approved">Approved</span>`}
+                    <button onclick="AdminCtrl._deleteReview('${r.id}')" class="btn btn-danger btn-sm">\uD83D\uDDD1</button>
+                </div>
+            </div>
+        </div>`;
+        c.innerHTML = `<div style="margin-bottom:24px"><h2 class="font-display text-2xl font-extrabold">Reviews \u2B50</h2><p class="text-sm mt-1" style="color:var(--muted)">${pending.length} pending \u00B7 ${approved.length} approved</p></div>
+        ${pending.length ? `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Needs Approval</div>${pending.map(card).join('')}<div style="margin-bottom:24px"></div>` : ''}
+        ${approved.length ? `<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Approved</div>${approved.map(card).join('')}` : ''}
+        ${!all.length ? `<div style="text-align:center;padding:60px;border:1px dashed var(--border);border-radius:16px;color:var(--muted)"><div style="font-size:40px;margin-bottom:12px">\u2B50</div><p>No reviews yet.</p></div>` : ''}`;
+    },
+    async _approveReview(id) { const {error}=await sb.from('reviews').update({is_approved:true}).eq('id',id); if(error)return toast(error.message,'error'); toast('\u2713 Review approved'); AdminCtrl.manageReviews(); },
+    async _deleteReview(id)  { if(!confirm('Delete this review?'))return; const {error}=await sb.from('reviews').delete().eq('id',id); if(error)return toast(error.message,'error'); toast('Review deleted'); AdminCtrl.manageReviews(); },
+
     async savePassword() {
         const pass = document.getElementById('st-pass').value;
         const conf = document.getElementById('st-confirm').value;
@@ -3523,286 +4003,9 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
             if (error) throw error;
             document.getElementById('st-pass').value = '';
             document.getElementById('st-confirm').value = '';
-            toast('✓ Password updated');
+            toast('\u2713 Password updated');
         } catch(err) { toast(err.message, 'error'); }
         setBtn('st-pw-save', 'Update Password', false);
-    }
-};
-
-// ────────────────────────────────────────────────
-//  CITY SELECTOR
-// ────────────────────────────────────────────────
-const INDIA_CITIES = [
-    // Live
-    { name: 'Chennai', state: 'Tamil Nadu', live: true },
-    // Coming soon — sorted roughly by rental market size
-    { name: 'Bangalore', state: 'Karnataka', live: false },
-    { name: 'Mumbai', state: 'Maharashtra', live: false },
-    { name: 'Delhi', state: 'Delhi', live: false },
-    { name: 'Hyderabad', state: 'Telangana', live: false },
-    { name: 'Pune', state: 'Maharashtra', live: false },
-    { name: 'Ahmedabad', state: 'Gujarat', live: false },
-    { name: 'Kolkata', state: 'West Bengal', live: false },
-    { name: 'Jaipur', state: 'Rajasthan', live: false },
-    { name: 'Kochi', state: 'Kerala', live: false },
-    { name: 'Coimbatore', state: 'Tamil Nadu', live: false },
-    { name: 'Surat', state: 'Gujarat', live: false },
-    { name: 'Lucknow', state: 'Uttar Pradesh', live: false },
-    { name: 'Chandigarh', state: 'Punjab', live: false },
-    { name: 'Bhopal', state: 'Madhya Pradesh', live: false },
-    { name: 'Visakhapatnam', state: 'Andhra Pradesh', live: false },
-    { name: 'Nagpur', state: 'Maharashtra', live: false },
-    { name: 'Indore', state: 'Madhya Pradesh', live: false },
-    { name: 'Thiruvananthapuram', state: 'Kerala', live: false },
-    { name: 'Madurai', state: 'Tamil Nadu', live: false },
-    { name: 'Mysuru', state: 'Karnataka', live: false },
-    { name: 'Vadodara', state: 'Gujarat', live: false },
-    { name: 'Guwahati', state: 'Assam', live: false },
-    { name: 'Bhubaneswar', state: 'Odisha', live: false },
-];
-
-const CitySelector = {
-    _open: false,
-
-    toggle(e) {
-        e && e.stopPropagation();
-        const dd = document.getElementById('city-dropdown');
-        if (!dd) return;
-        CitySelector._open = !CitySelector._open;
-        if (CitySelector._open) {
-            CitySelector._renderDropdown(dd);
-            dd.style.display = 'block';
-            setTimeout(() => document.addEventListener('click', CitySelector._outside, { once: true }), 10);
-        } else {
-            dd.style.display = 'none';
-        }
-    },
-
-    _outside() {
-        const dd = document.getElementById('city-dropdown');
-        if (dd) dd.style.display = 'none';
-        CitySelector._open = false;
-    },
-
-    _renderDropdown(container) {
-        const cur = S.selectedCity || 'Chennai';
-        container.innerHTML = `
-            <div style="padding:8px 12px 6px;font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Select City</div>
-            ${INDIA_CITIES.map(c => `
-            <div class="city-item ${c.name === cur ? 'active' : ''}" onclick="CitySelector.select('${c.name}',${c.live})">
-                <div>
-                    <div style="font-weight:${c.name===cur?'700':'500'}">${c.name}</div>
-                    <div style="font-size:11px;color:var(--muted)">${c.state}</div>
-                </div>
-                <span class="city-badge ${c.live ? 'city-live' : 'city-coming'}">${c.live ? 'Live' : 'Soon'}</span>
-            </div>`).join('')}`;
-    },
-
-    select(cityName, isLive) {
-        const dd = document.getElementById('city-dropdown');
-        if (dd) dd.style.display = 'none';
-        CitySelector._open = false;
-
-        if (!isLive) {
-            CitySelector.openPartnerCTA(cityName);
-            return;
-        }
-        S.selectedCity = cityName;
-        // Update all city name displays
-        ['nav-city-name','hero-city-name','fleet-city-name','mbn-city-lbl'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = cityName;
-        });
-        toast(`📍 Showing cars in ${cityName}`);
-    },
-
-    openModal() {
-        const modal = document.createElement('div');
-        modal.className = 'modal-bg';
-        modal.id = 'city-modal';
-        modal.onclick = e => { if (e.target === modal) modal.remove(); };
-        const cur = S.selectedCity || 'Chennai';
-        modal.innerHTML = `
-        <div class="modal-box" style="max-width:480px">
-            <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
-                <div>
-                    <h2 class="font-display text-xl font-bold">Select City</h2>
-                    <p class="text-sm mt-0.5" style="color:var(--muted)">Cruzio is live in Chennai · expanding soon</p>
-                </div>
-                <button onclick="document.getElementById('city-modal').remove()" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
-            </div>
-            <div style="padding:16px;max-height:60vh;overflow-y:auto">
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-                    ${INDIA_CITIES.map(c => `
-                    <div onclick="CitySelector.select('${c.name}',${c.live});document.getElementById('city-modal').remove()"
-                         style="padding:12px 14px;border:1px solid ${c.name===cur?'rgba(245,158,11,.4)':c.live?'rgba(34,197,94,.2)':'var(--border)'};border-radius:10px;cursor:pointer;background:${c.name===cur?'rgba(245,158,11,.07)':c.live?'rgba(34,197,94,.04)':'var(--surface)'};transition:all .15s"
-                         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='${c.name===cur?'rgba(245,158,11,.4)':c.live?'rgba(34,197,94,.2)':'var(--border)'}'">
-                        <div style="font-size:13px;font-weight:700;margin-bottom:3px">${c.name}</div>
-                        <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${c.state}</div>
-                        <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:${c.live?'rgba(34,197,94,.12)':'rgba(107,107,114,.12)'};color:${c.live?'var(--green)':'var(--muted)'};text-transform:uppercase;letter-spacing:.06em">${c.live?'✓ Live':'Coming Soon'}</span>
-                    </div>`).join('')}
-                </div>
-            </div>
-        </div>`;
-        document.body.appendChild(modal);
-        setTimeout(() => modal.classList.add('show'), 10);
-    },
-
-    openPartnerCTA(city) {
-        const modal = document.createElement('div');
-        modal.className = 'modal-bg';
-        modal.id = 'city-partner-modal';
-        modal.onclick = e => { if (e.target === modal) modal.remove(); };
-        modal.innerHTML = `
-        <div class="modal-box" style="max-width:460px">
-            <div class="p-6 text-center">
-                <div style="font-size:48px;margin-bottom:12px">🚀</div>
-                <h2 class="font-display text-2xl font-extrabold mb-2">${city ? `Cruzio is coming to ${city}!` : 'Bring Cruzio to Your City!'}</h2>
-                <p style="color:var(--muted);line-height:1.7;margin-bottom:20px;font-size:14px">We're actively looking for launch partners in every major city. As a Cruzio city partner, you'll run premium car rentals under the Cruzio brand — with our booking platform, customer base, and support.</p>
-                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px;text-align:left">
-                    ${[['📱','Zero upfront tech cost','We provide the platform and booking system'],
-                       ['🤝','Cruzio brand backing','Launch with an established brand, not from scratch'],
-                       ['💰','Revenue sharing model','Keep majority of earnings from your city'],
-                       ['📊','Full admin access','Manage your fleet through the same dashboard'],
-                    ].map(([ic,t,d]) => `<div style="display:flex;gap:10px;margin-bottom:12px;align-items:flex-start"><span style="font-size:18px;flex-shrink:0">${ic}</span><div><div style="font-size:13px;font-weight:700">${t}</div><div style="font-size:12px;color:var(--muted)">${d}</div></div></div>`).join('')}
-                </div>
-                <button onclick="document.getElementById('city-partner-modal').remove();Modals.open('partner-modal')" class="btn btn-primary" style="width:100%;font-size:15px;padding:14px">
-                    Express Interest →
-                </button>
-                <button onclick="document.getElementById('city-partner-modal').remove()" class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px">Maybe Later</button>
-            </div>
-        </div>`;
-        document.body.appendChild(modal);
-        setTimeout(() => modal.classList.add('show'), 10);
-    },
-
-    initCitiesSection() {
-        const grid = document.getElementById('cities-section-grid');
-        if (!grid) return;
-        const cur = S.selectedCity || 'Chennai';
-        grid.innerHTML = INDIA_CITIES.map(c => `
-        <div class="city-card ${c.live ? 'is-live' : ''}" onclick="${c.live ? `CitySelector.select('${c.name}',true)` : `CitySelector.openPartnerCTA('${c.name}')`}">
-            <div style="font-size:20px;margin-bottom:6px">${c.live ? '📍' : '🔜'}</div>
-            <div style="font-size:13px;font-weight:700;margin-bottom:2px">${c.name}</div>
-            <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${c.state}</div>
-            <span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:${c.live?'rgba(34,197,94,.12)':'rgba(245,158,11,.1)'};color:${c.live?'var(--green)':'var(--accent)'};text-transform:uppercase;letter-spacing:.06em">${c.live ? '✓ Live' : 'Partner with us'}</span>
-        </div>`).join('');
-    }
-};
-
-// Mobile nav helper
-function updateMobileNav(active) {
-    ['home','cars'].forEach(id => {
-        const el = document.getElementById('mbn-' + id);
-        if (el) el.classList.toggle('active', id === active);
-    });
-}
-
-// ────────────────────────────────────────────────
-//  SILENT IP GEOLOCATION (no permission prompt)
-// ────────────────────────────────────────────────
-const Geo = {
-    _cache: null,
-
-    async captureIP(bookingId) {
-        // Fire-and-forget — never blocks UI, never asks for permission
-        try {
-            if (Geo._cache) { if (bookingId) Geo._updateBooking(bookingId, Geo._cache); return; }
-            const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) });
-            if (!res.ok) return;
-            const d = await res.json();
-            Geo._cache = { city: d.city || null, region: d.region || null, country_name: d.country_name || null };
-            if (bookingId) Geo._updateBooking(bookingId, Geo._cache);
-        } catch(_) { /* silently ignore — never surfaces to user */ }
-    },
-
-    async _updateBooking(id, loc) {
-        if (!id || !loc) return;
-        await sb.from('bookings').update({
-            customer_ip_city:    loc.city,
-            customer_ip_region:  loc.region,
-            customer_ip_country: loc.country_name,
-        }).eq('id', id).catch(() => {});
-    }
-};
-
-// ────────────────────────────────────────────────
-//  PUSH NOTIFICATIONS
-// ────────────────────────────────────────────────
-const PushNotif = {
-    _granted: false,
-
-    async init() {
-        if (!('Notification' in window)) return;
-        PushNotif._granted = Notification.permission === 'granted';
-        // If OneSignal App ID is configured, init it
-        if (CFG.ONESIGNAL) PushNotif._initOneSignal();
-    },
-
-    _initOneSignal() {
-        if (typeof OneSignal !== 'undefined') return; // already loaded
-        const s = document.createElement('script');
-        s.src = 'https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js';
-        s.defer = true;
-        s.onload = () => {
-            window.OneSignalDeferred = window.OneSignalDeferred || [];
-            OneSignalDeferred.push(async os => {
-                await os.init({ appId: CFG.ONESIGNAL, allowLocalhostAsSecureOrigin: true });
-            });
-        };
-        document.head.appendChild(s);
-    },
-
-    offerAfterBooking() {
-        if (!('Notification' in window)) return;
-        if (Notification.permission === 'granted') { PushNotif._granted = true; return; }
-        if (Notification.permission === 'denied') return;
-        if (localStorage.getItem('notif_dismissed')) return;
-        const p = document.getElementById('notif-prompt');
-        if (p) p.classList.add('show');
-        setTimeout(() => p && p.classList.remove('show'), 12000);
-    },
-
-    async grant() {
-        const p = document.getElementById('notif-prompt');
-        if (p) p.classList.remove('show');
-        try {
-            const perm = await Notification.requestPermission();
-            PushNotif._granted = perm === 'granted';
-            if (PushNotif._granted) {
-                toast("🔔 Notifications enabled! We'll alert you when your booking is confirmed.");
-                PushNotif.showLocal('Cruzio Notifications', "You'll be notified when your booking is confirmed. \u2705");
-            }
-        } catch(_) {}
-    },
-
-    dismiss() {
-        const p = document.getElementById('notif-prompt');
-        if (p) p.classList.remove('show');
-        localStorage.setItem('notif_dismissed', '1');
-    },
-
-    showLocal(title, body, icon) {
-        if (!PushNotif._granted) return;
-        try {
-            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.showNotification(title, { body, icon: icon || './Cruzio favicon.png', badge: './Cruzio favicon.png', vibrate: [200, 100, 200] });
-                }).catch(() => new Notification(title, { body, icon: icon || './Cruzio favicon.png' }));
-            } else {
-                new Notification(title, { body, icon: icon || './Cruzio favicon.png' });
-            }
-        } catch(_) {}
-    },
-
-    // Call this when admin approves/rejects — shows local notification if tab is open
-    notifyBookingStatus(carName, status) {
-        const msgs = {
-            approved: [`🎉 Booking Confirmed!`, `Your ${carName} booking is confirmed. Get ready to drive!`],
-            rejected: [`Booking Update`, `Your ${carName} booking request could not be confirmed. Contact us for alternatives.`],
-        };
-        const [title, body] = msgs[status] || ['Cruzio Update', 'Your booking has been updated.'];
-        PushNotif.showLocal(title, body);
     }
 };
 
@@ -3813,12 +4016,9 @@ const PushNotif = {
     Theme.apply(localStorage.getItem('theme') || 'dark');
     await Auth.init();
     Router.init();
-    PushNotif.init();
-    // Passively warm up IP geo cache on page load (no prompt, no blocking)
-    Geo.captureIP(null);
-    // Register service worker (PWA)
+    // PWA service worker
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('./sw.js').catch(() => {});
+        navigator.serviceWorker.register('./sw.js').catch(()=>{});
     }
 })();
 </script>
