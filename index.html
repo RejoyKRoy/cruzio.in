@@ -398,7 +398,7 @@
         .btn-sm { min-height: 36px; padding: 8px 14px; }
 
         /* Safe area insets for notch/punch-hole devices */
-        #top-nav { padding-top: env(safe-area-inset-top, 0); height: calc(64px + env(safe-area-inset-top, 0)); }
+        #top-nav { padding-top: 0; height: 64px; }
         #main { padding-top: calc(64px + env(safe-area-inset-top, 0)) !important; }
         .wa-btn { bottom: calc(26px + env(safe-area-inset-bottom, 0)); right: calc(20px + env(safe-area-inset-right, 0)); }
         #toast { bottom: calc(24px + env(safe-area-inset-bottom, 0)); }
@@ -488,6 +488,8 @@
 </head>
 <body>
 
+</div>
+
 <!-- ══════════════════════════════════════════════ -->
 <!--  FLOATING WHATSAPP                             -->
 <!-- ══════════════════════════════════════════════ -->
@@ -514,6 +516,10 @@
             <a href="#" onclick="Modals.open('partner-modal')" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">List Your Vehicle</a>
             <a href="#trust" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Trust &amp; Safety</a>
             <a href="#" onclick="CustomerPortal.open()" class="text-sm" style="color:var(--muted);text-decoration:none;transition:color .2s" onmouseover="this.style.color='var(--fg)'" onmouseout="this.style.color='var(--muted)'">Track Booking</a>
+            <a href="#detailing" class="text-sm" style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:50px;background:linear-gradient(135deg,rgba(245,158,11,.15),rgba(245,158,11,.08));border:1px solid rgba(245,158,11,.35);color:var(--accent);text-decoration:none;font-weight:700;letter-spacing:.02em;transition:all .2s;white-space:nowrap" onmouseover="this.style.background='linear-gradient(135deg,rgba(245,158,11,.25),rgba(245,158,11,.15))';this.style.borderColor='rgba(245,158,11,.6)'" onmouseout="this.style.background='linear-gradient(135deg,rgba(245,158,11,.15),rgba(245,158,11,.08))';this.style.borderColor='rgba(245,158,11,.35)'">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;flex-shrink:0"></span>
+                ✨ Detailing Studio
+            </a>
         </div>
 
         <div class="flex items-center gap-2">
@@ -532,6 +538,10 @@
             <a href="#" onclick="Modals.open('partner-modal');closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">List Your Vehicle</a>
             <a href="#trust" onclick="closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Trust &amp; Safety</a>
             <a href="#" onclick="CustomerPortal.open();closeMobileMenu()" class="block py-2.5 text-sm" style="color:var(--muted);text-decoration:none">Track Booking</a>
+            <a href="#detailing" onclick="closeMobileMenu()" class="flex items-center gap-2 py-2.5 text-sm" style="color:var(--accent);text-decoration:none;font-weight:700">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 1.5s infinite;flex-shrink:0;display:inline-block"></span>
+                ✨ Detailing Studio <span style="font-size:10px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);margin-left:2px">Coming Soon</span>
+            </a>
         </div>
     </div>
 </nav>
@@ -1756,6 +1766,131 @@ const Views = {
             </div>
         </section>
 
+        <!-- ██ CRUZIO DETAILING STUDIO ██ -->
+        <section id="detailing" style="background:var(--ink,var(--bg));border-top:1px solid var(--border);position:relative;overflow:hidden">
+
+            <!-- Ambient glows -->
+            <div style="position:absolute;inset:0;pointer-events:none">
+                <div style="position:absolute;top:-20%;right:-8%;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.10) 0%,transparent 65%)"></div>
+                <div style="position:absolute;bottom:-25%;left:-10%;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.06) 0%,transparent 65%)"></div>
+                <!-- Drifting lines -->
+                <div style="position:absolute;inset:0;overflow:hidden;opacity:.6">
+                    ${[18,42,68,84].map((t,i)=>`<div style="position:absolute;top:${t}%;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(245,158,11,.05),transparent);animation:drift ${8+i*1.5}s linear ${i*2}s infinite"></div>`).join('')}
+                </div>
+            </div>
+
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-20" style="position:relative">
+
+                <!-- ── Top label + heading ── -->
+                <div class="text-center mb-16">
+                    <div style="display:inline-flex;align-items:center;gap:8px;padding:6px 16px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.22);border-radius:4px;margin-bottom:20px">
+                        <span style="width:5px;height:5px;border-radius:50%;background:var(--accent);animation:pulse 1.8s infinite;display:inline-block"></span>
+                        <span style="font-size:10px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:var(--accent)">Cruzio Detailing Studio · Launching 2025 · Chennai</span>
+                    </div>
+                    <h2 class="font-display font-extrabold" style="font-size:clamp(2rem,5vw,3.4rem);line-height:1.05;letter-spacing:-.02em;margin-bottom:16px">
+                        A Detailing Studio Born<br>from a <em style="font-style:italic;color:var(--accent)">Ready Audience.</em>
+                    </h2>
+                    <p style="color:var(--muted);font-size:15px;line-height:1.85;max-width:560px;margin:0 auto">
+                        Cruzio's rental customers are already car-conscious, quality-driven people. Our detailing studio is the natural next step — giving that audience access to world-class paint protection and vehicle customisation, right here in Chennai.
+                    </p>
+                </div>
+
+                <!-- ── Two-column: pillars + services box ── -->
+                <div style="display:grid;grid-template-columns:1fr;gap:40px;margin-bottom:56px" class="lg:grid-cols-2 lg:gap-16">
+
+                    <!-- LEFT: 4 pillars -->
+                    <div style="display:flex;flex-direction:column;gap:14px">
+                        ${[
+                            ['Standalone Studio','Dedicated space, trained team, boutique experience — built exclusively for premium car owners.'],
+                            ['Exclusive International Brand','Partnering with a globally recognised PPF & wrap manufacturer for certified-quality output.'],
+                            ['Luxury & Premium Segment','BMW, Mercedes, Audi, Porsche, luxury SUV owners — an underserved audience in South India.'],
+                            ['Warm Customer Base from Day One','Three years of offline Cruzio rental clients become the studio\'s first audience, instantly.'],
+                        ].map(([t,d],i)=>`
+                            <div style="display:flex;gap:16px;align-items:flex-start;padding:20px 22px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent)">
+                                <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:rgba(245,158,11,.12);flex-shrink:0;line-height:1;margin-top:2px">0${i+1}</div>
+                                <div>
+                                    <div style="font-weight:700;font-size:14px;margin-bottom:5px;color:var(--fg)">${t}</div>
+                                    <div style="font-size:13px;color:var(--muted);line-height:1.75">${d}</div>
+                                </div>
+                            </div>`).join('')}
+                    </div>
+
+                    <!-- RIGHT: Services box -->
+                    <div style="background:var(--surface);border:1px solid var(--border);position:relative;overflow:hidden">
+                        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),transparent)"></div>
+                        <div style="padding:28px 28px 20px">
+                            <div style="font-size:9px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--accent);margin-bottom:20px">Services Planned</div>
+                            <div style="display:flex;flex-direction:column;gap:0">
+                                ${[
+                                    ['🛡️','Paint Protection Film (PPF)','Full & partial — self-healing, invisible armour'],
+                                    ['🎨','Vehicle Wrapping','Colour change, accents & custom finishes'],
+                                    ['💎','Ceramic Coating','Nano-ceramic gloss & hydrophobic protection'],
+                                    ['🔆','Multi-stage Paint Correction','Scratch removal, compounding & machine polish'],
+                                    ['🪑','Interior Deep Detailing','Leather conditioning, odour treatment & steam clean'],
+                                    ['🚗','Fleet Detailing','Volume packages for rental & corporate fleets'],
+                                ].map(([ic,t,d])=>`
+                                    <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)">
+                                        <span style="font-size:18px;flex-shrink:0;width:26px;text-align:center">${ic}</span>
+                                        <div>
+                                            <div style="font-weight:600;font-size:13px;color:var(--fg)">${t}</div>
+                                            <div style="font-size:11px;color:var(--muted);margin-top:2px">${d}</div>
+                                        </div>
+                                        <div style="margin-left:auto;align-self:center;font-size:9px;font-weight:700;padding:2px 8px;border-radius:3px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);color:var(--accent);white-space:nowrap;flex-shrink:0">Soon</div>
+                                    </div>`).join('')}
+                            </div>
+                        </div>
+                        <!-- Location -->
+                        <div style="padding:16px 28px;background:rgba(245,158,11,.05);border-top:1px solid rgba(245,158,11,.15);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                            <div>
+                                <div style="font-size:11px;font-weight:700;color:var(--fg)">📍 Chennai, Tamil Nadu</div>
+                                <div style="font-size:11px;color:var(--muted);margin-top:2px">Location to be announced · Launching 2025</div>
+                            </div>
+                            <span style="font-size:9px;font-weight:800;padding:4px 12px;background:var(--accent);color:#0a0a0b;letter-spacing:.1em;text-transform:uppercase">Coming Soon</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Why Cruzio — 3 cards ── -->
+                <div style="border-top:1px solid var(--border);padding-top:48px">
+                    <div style="font-size:10px;font-weight:700;letter-spacing:.32em;text-transform:uppercase;color:var(--accent);margin-bottom:32px;text-align:center">Why Partner With Cruzio</div>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2px;background:rgba(245,158,11,.06)">
+                        ${[
+                            ['01','A Pre-Built Customer Base','Three years of offline rental operations means a ready database of Chennai vehicle owners who already trust the Cruzio name. Your brand\'s first audience comes with us.'],
+                            ['02','An Underserved Market','Tamil Nadu has thousands of luxury vehicle owners and virtually no certified international PPF brand with a dedicated studio presence. Chennai is a first-mover market.'],
+                            ['03','Long-Term Thinking','We didn\'t build a rental business offline for three years by chasing shortcuts. We are looking for a brand partnership built over the long term — exclusive and serious.'],
+                        ].map(([n,t,d])=>`
+                            <div style="background:var(--card);padding:36px 30px">
+                                <div style="font-family:'Syne',sans-serif;font-size:44px;font-weight:800;color:rgba(245,158,11,.09);line-height:1;margin-bottom:14px">${n}</div>
+                                <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:var(--fg);margin-bottom:10px">${t}</div>
+                                <div style="font-size:12px;color:var(--muted);line-height:1.9">${d}</div>
+                            </div>`).join('')}
+                    </div>
+                </div>
+
+                <!-- ── CTA strip ── -->
+                <div style="margin-top:48px;padding:28px 32px;background:var(--surface);border:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px">
+                    <div>
+                        <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--fg);margin-bottom:5px">Brand &amp; Partnership Enquiries</div>
+                        <div style="font-size:13px;color:var(--muted)">Interested in the detailing studio or a brand distribution partnership in South India?</div>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:10px">
+                        <a href="mailto:partnerships@cruzio.in" style="display:inline-flex;align-items:center;gap:7px;padding:12px 22px;background:var(--card);border:1px solid var(--border);color:var(--fg);text-decoration:none;font-size:13px;font-weight:600;transition:border-color .2s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+                            ✉ partnerships@cruzio.in
+                        </a>
+                        <a href="https://wa.me/919605370108?text=Hi%20Cruzio%2C%20I%20am%20interested%20in%20the%20Detailing%20Studio%20%E2%80%94%20please%20share%20more%20details!" target="_blank" style="display:inline-flex;align-items:center;gap:7px;padding:12px 22px;background:var(--accent);color:#0a0a0b;text-decoration:none;font-size:13px;font-weight:700">
+                            <svg width="14" height="14" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                            Notify Me on Launch
+                        </a>
+                    </div>
+                </div>
+
+            </div>
+
+            <style>
+                @keyframes drift { from { transform:translateX(-100%); } to { transform:translateX(100%); } }
+            </style>
+        </section>
+
         <!-- FOOTER -->
         <footer style="border-top:1px solid var(--border);background:var(--card)">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
@@ -1784,7 +1919,7 @@ const Views = {
                         </div>
                     </div>
                 </div>
-                <div class="text-xs mt-8 pt-6" style="color:var(--muted);border-top:1px solid var(--border)">© ${new Date().getFullYear()} Cruzio.in · Shine Ventures · Chennai, Tamil Nadu</div>
+                <div class="text-xs mt-8 pt-6" style="color:var(--muted);border-top:1px solid var(--border)">© ${new Date().getFullYear()} Cruzio.in · Shine Ventures<br style="display:none md:inline">📍 No. 83B, Sarojini Street, Mahalakshmi Nagar, Sevvapet, Chennai – 602025</div>
             </div>
         </footer>
     `,
