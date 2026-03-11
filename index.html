@@ -44,6 +44,7 @@
     );
     -- If table already exists, add the images column:
     -- alter table cars add column if not exists images text[];
+    -- alter table cars add column if not exists is_available boolean default true;
 
     -- 2. Bookings table
     create table if not exists bookings (
@@ -550,6 +551,46 @@
 <!--  MAIN VIEW                                     -->
 <!-- ══════════════════════════════════════════════ -->
 <main id="main"></main>
+
+<!-- ══════════════════════════════════════════════ -->
+<!--  MODAL: UNAVAILABLE CAR ENQUIRY               -->
+<!-- ══════════════════════════════════════════════ -->
+<div id="enquire-modal" class="modal-bg" style="display:none">
+    <div class="modal-box" style="max-width:440px">
+        <div class="flex items-center justify-between p-5 pb-4" style="border-bottom:1px solid var(--border)">
+            <div>
+                <h2 class="font-display text-xl font-bold">Car Unavailable</h2>
+                <p class="text-sm mt-1" style="color:var(--muted)" id="enq-subtitle">This car is temporarily unavailable</p>
+            </div>
+            <button onclick="Modals.close('enquire-modal')" style="width:32px;height:32px;border-radius:50%;background:var(--surface);border:1px solid var(--border);cursor:pointer;color:var(--muted);font-size:18px;display:flex;align-items:center;justify-content:center">&times;</button>
+        </div>
+        <div class="p-5 space-y-4">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+                <img id="enq-car-img" src="" alt="" style="width:64px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0">
+                <div>
+                    <div class="font-bold text-sm" id="enq-car-name"></div>
+                    <div class="text-xs mt-1" style="color:var(--muted)" id="enq-car-cat"></div>
+                </div>
+                <span style="margin-left:auto;font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);color:#ef4444;white-space:nowrap;flex-shrink:0">Unavailable</span>
+            </div>
+            <p style="font-size:13px;color:var(--muted);line-height:1.7">This car is temporarily unavailable. Tell us your requirement and we&#39;ll find you the best available option from our fleet.</p>
+            <div>
+                <label class="lbl">YOUR REQUIREMENT <span style="color:var(--muted);text-transform:none;font-weight:400;letter-spacing:0">(optional but helpful)</span></label>
+                <textarea id="enq-requirement" class="inp" placeholder="E.g. SUV for 3 days, family trip, 7 seats needed, budget &#8377;2500/day, dates 20&#8211;23 March..." style="min-height:88px;resize:none"></textarea>
+            </div>
+            <div style="background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--muted);line-height:1.6">
+                &#128172; We&#39;ll reply on WhatsApp within <strong style="color:var(--fg)">30 minutes</strong> with available cars matching your needs.
+            </div>
+            <div style="display:flex;gap:10px">
+                <button onclick="Modals.close('enquire-modal')" class="btn btn-ghost" style="flex:1">Browse Cars</button>
+                <button onclick="Enquire.send()" class="btn btn-primary" style="flex:1;background:#25D366;border-color:#25D366;display:flex;align-items:center;justify-content:center;gap:8px">
+                    <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    Chat on WhatsApp
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ══════════════════════════════════════════════ -->
 <!--  MODAL: BOOKING                                -->
@@ -1385,6 +1426,11 @@ const Theme = {
     apply(t) {
         document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : '');
         localStorage.setItem('theme', t);
+        // Sync sidebar theme toggle
+        const sk = document.getElementById('sth-knob');
+        const sl = document.getElementById('sth-label');
+        if (sk) sk.style.transform = dark ? 'translateX(12px)' : 'translateX(0)';
+        if (sl) sl.textContent = dark ? 'Dark Mode' : 'Light Mode';
         const btn = document.getElementById('theme-btn');
         btn.innerHTML = t === 'light'
             ? `<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`
@@ -2303,7 +2349,8 @@ const Views = {
         const multi = imgs.length > 1;
         const fallback = `https://placehold.co/400x210/111113/f59e0b?text=${encodeURIComponent(car.name)}`;
         return `
-        <div class="car-card" onclick="Booking.open('${esc(car.id)}')">
+        <div class="car-card" style="position:relative" onclick="Booking.open('${esc(car.id)}')">
+            ${car.is_available === false ? '<div style="position:absolute;inset:0;background:rgba(10,10,12,.6);z-index:10;display:flex;align-items:center;justify-content:center;border-radius:16px;backdrop-filter:blur(2px);pointer-events:none"><div style="text-align:center"><div style="font-size:22px;margin-bottom:6px">&#128274;</div><div style="font-size:10px;font-weight:800;letter-spacing:.08em;color:#fff;text-transform:uppercase">Temporarily Unavailable</div><div style="font-size:10px;color:rgba(255,255,255,.6);margin-top:3px">Tap to enquire</div></div></div>' : ''}
             <div class="carousel-wrap">
                 <div class="carousel-track" id="ct-${cid}">
                     ${imgs.length
@@ -2347,7 +2394,9 @@ const Views = {
                         <span class="font-display font-extrabold" style="font-size:22px;color:var(--accent)">${fmtCur(car.price_per_day)}</span>
                         <span style="font-size:12px;color:var(--muted);margin-left:2px">/day</span>
                     </div>
-                    <button class="btn btn-primary btn-sm" style="pointer-events:none;font-size:12px;padding:7px 16px">Book Now →</button>
+                    ${car.is_available === false
+                        ? '<button class="btn btn-sm" style="pointer-events:none;font-size:12px;padding:7px 16px;background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.25)">&#128172; Enquire</button>'
+                        : '<button class="btn btn-primary btn-sm" style="pointer-events:none;font-size:12px;padding:7px 16px">Book Now →</button>'}
                 </div>
             </div>
         </div>`;
@@ -2380,6 +2429,15 @@ const Views = {
                 </nav>
 
                 <div style="border-top:1px solid var(--border);padding-top:16px;display:flex;flex-direction:column;gap:4px">
+                    <button class="stab" onclick="Theme.toggle()" id="sidebar-theme-btn" style="justify-content:space-between">
+                        <span style="display:flex;align-items:center;gap:8px">
+                            <svg id="sth-icon" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m8.66-12H21m-18 0H1.34M18.36 5.64l-.7.7M6.34 17.66l-.7.7M18.36 18.36l-.7-.7M6.34 6.34l-.7-.7M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                            <span id="sth-label">Light Mode</span>
+                        </span>
+                        <span style="width:28px;height:16px;border-radius:8px;background:var(--border);position:relative;display:inline-block;flex-shrink:0" id="sth-track">
+                            <span style="position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--accent);transition:transform .2s" id="sth-knob"></span>
+                        </span>
+                    </button>
                     <a href="#home" class="stab" style="text-decoration:none">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                         Public Site
@@ -2508,6 +2566,34 @@ const CarCtrl = {
 };
 
 // ────────────────────────────────────────────────
+//  ENQUIRE CONTROLLER
+// ────────────────────────────────────────────────
+const Enquire = {
+    car: null,
+    open(car) {
+        Enquire.car = car;
+        const imgs = (Array.isArray(car.images) && car.images.length) ? car.images : (car.image_url ? [car.image_url] : []);
+        const fb = 'https://placehold.co/64x48/111113/f59e0b?text=' + encodeURIComponent(car.name);
+        const el = id => document.getElementById(id);
+        if (el('enq-car-img'))    el('enq-car-img').src = imgs[0] || fb;
+        if (el('enq-car-name'))   el('enq-car-name').textContent = car.name;
+        if (el('enq-car-cat'))    el('enq-car-cat').textContent = (car.category||'') + (car.seats ? ' · '+car.seats+' seats' : '');
+        if (el('enq-subtitle'))   el('enq-subtitle').textContent = car.name + ' is temporarily unavailable';
+        if (el('enq-requirement')) el('enq-requirement').value = '';
+        Modals.open('enquire-modal');
+    },
+    send() {
+        const car = Enquire.car;
+        const req = (document.getElementById('enq-requirement')?.value || '').trim();
+        const carLine = car ? 'Car I wanted: *' + car.name + '* (' + (car.category||'') + ')' : '';
+        const reqLine = req ? '\nMy requirement: ' + req : '';
+        const msg = encodeURIComponent('Hi Cruzio! I tried to book ' + (car ? car.name : 'a car') + ' but it shows unavailable.' + (reqLine||'') + ' Can you help me find an available car?');
+        window.open('https://wa.me/919605370108?text=' + msg, '_blank');
+        Modals.close('enquire-modal');
+    },
+};
+
+// ────────────────────────────────────────────────
 //  BOOKING CONTROLLER
 // ────────────────────────────────────────────────
 const Booking = {
@@ -2517,6 +2603,7 @@ const Booking = {
     open(carId) {
         const car = S.allCars.find(c => c.id === carId);
         if (!car) return toast('Car not found', 'error');
+        if (car.is_available === false) return Enquire.open(car);
         S.car = car;
         S.dates = { s: null, e: null };
 
@@ -3496,7 +3583,10 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                                     <div class="font-display font-bold">${esc(car.name)}</div>
                                     <div class="text-xs" style="color:var(--muted)">${esc(car.category)} ${car.seats ? '· '+car.seats+' seats' : ''}</div>
                                 </div>
-                                <span class="badge ${car.is_approved ? 'badge-live' : 'badge-hidden'}">${car.is_approved ? 'LIVE' : 'HIDDEN'}</span>
+                                <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+                                    <span class="badge ${car.is_approved ? 'badge-live' : 'badge-hidden'}">${car.is_approved ? 'LIVE' : 'HIDDEN'}</span>
+                                    ${car.is_available===false ? '<span style="font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:#f87171">Unavail</span>' : ''}
+                                </div>
                             </div>
                             <div class="font-display font-bold mb-3" style="color:var(--accent)">${fmtCur(car.price_per_day)}/day</div>
                             <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -3507,6 +3597,7 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                                 </button>
                                 ${S.profile?.role === 'admin' ? `<button onclick="AdminCtrl.deleteCar('${esc(car.id)}','${esc(car.name)}')" class="btn btn-danger btn-sm">🗑</button>` : ''}
                             </div>
+                            <button onclick="AdminCtrl.toggleAvailability('${esc(car.id)}',${car.is_available===false})" class="btn btn-sm" style="width:100%;margin-top:6px;font-size:11px;background:${car.is_available===false?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'};color:${car.is_available===false?'var(--green)':'#f87171'};border:1px solid ${car.is_available===false?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'}">${car.is_available===false?'&#10003; Mark as Available':'&#128274; Mark as Unavailable'}</button>
                         </div>
                     </div>`;
                 }).join('')}
@@ -3638,6 +3729,17 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         await sb.from('cars').update({ is_approved: status }).eq('id', id);
         toast(status ? '✓ Car is now live' : 'Car hidden from listing');
         AdminCtrl.fleet();
+    },
+
+    async toggleAvailability(id, makeAvailable) {
+        const role = S.profile?.role;
+        const q = role === 'partner'
+            ? sb.from('cars').update({ is_available: makeAvailable }).eq('id', id).eq('owner_id', S.user.id)
+            : sb.from('cars').update({ is_available: makeAvailable }).eq('id', id);
+        const { error } = await q;
+        if (error) return toast(error.message || 'Failed to update', 'error');
+        toast(makeAvailable ? 'Car marked as Available' : 'Car marked as Unavailable — customers directed to WhatsApp');
+        role === 'partner' ? AdminCtrl.myCars() : AdminCtrl.fleet();
     },
 
     // ── INQUIRIES ──
@@ -4220,6 +4322,7 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
                                     ? `<span style="display:flex;align-items:center;justify-content:center;flex:1;font-size:12px;font-weight:700;color:var(--green);gap:4px">✅ Live</span>`
                                     : `<span style="display:flex;align-items:center;justify-content:center;flex:1;font-size:12px;font-weight:600;color:var(--muted);gap:4px">⏳ Pending review</span>`}
                             </div>
+                            ${isOwner && car.is_approved ? `<button onclick="AdminCtrl.toggleAvailability('${esc(car.id)}',${car.is_available===false})" class="btn btn-sm" style="width:100%;margin-top:6px;font-size:11px;background:${car.is_available===false?'rgba(34,197,94,.08)':'rgba(239,68,68,.08)'};color:${car.is_available===false?'var(--green)':'#f87171'};border:1px solid ${car.is_available===false?'rgba(34,197,94,.2)':'rgba(239,68,68,.2)'}">${car.is_available===false?'&#10003; Mark as Available':'&#128274; Mark as Unavailable'}</button>` : ''}
                         </div>
                     </div>`;
                 }).join('')}
@@ -4634,78 +4737,131 @@ Please visit cruzio.in or message us here to check other options. Sorry for the 
         AdminCtrl.bookings();
     },
 
-    async analytics() {
+    async analytics(rangePreset, customFrom, customTo) {
         const c = document.getElementById('admin-content');
         c.innerHTML = `<div style="text-align:center;padding:60px"><div style="width:24px;height:24px;border:2.5px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+
         const { data: all } = await sb.from('bookings').select('*').order('created_at');
         const bk = all || [];
-        const approved = bk.filter(b => b.status==='approved');
-        const pending  = bk.filter(b => b.status==='pending');
-        const totalRev = approved.reduce((s,b) => s+(b.estimated_price||0), 0);
+
+        // Date range
+        const preset = rangePreset || '6m';
+        const now = new Date();
+        let filterFrom = null, filterTo = now.toISOString().slice(0,10);
+        if (preset === 'custom' && customFrom && customTo) { filterFrom = customFrom; filterTo = customTo; }
+        else if (preset === '7d')  filterFrom = new Date(now - 7*864e5).toISOString().slice(0,10);
+        else if (preset === '30d') filterFrom = new Date(now - 30*864e5).toISOString().slice(0,10);
+        else if (preset === '3m')  filterFrom = new Date(now.getFullYear(), now.getMonth()-3, 1).toISOString().slice(0,10);
+        else if (preset === '6m')  filterFrom = new Date(now.getFullYear(), now.getMonth()-6, 1).toISOString().slice(0,10);
+        else if (preset === '1y')  filterFrom = new Date(now.getFullYear()-1, now.getMonth(), 1).toISOString().slice(0,10);
+
+        const inRange = b => { const d=(b.created_at||'').slice(0,10); return (!filterFrom || d>=filterFrom) && d<=filterTo; };
+        const bkF      = filterFrom ? bk.filter(inRange) : bk;
+        const approved = bkF.filter(b => b.status==='approved');
+        const pending  = bkF.filter(b => b.status==='pending');
+        const cancelled= bkF.filter(b => b.status==='cancelled').length;
+        const rejected = bkF.filter(b => b.status==='rejected').length;
+        const totalRev = approved.reduce((s,b)=>s+(b.estimated_price||0),0);
         const avgVal   = approved.length ? Math.round(totalRev/approved.length) : 0;
 
-        // Monthly revenue (last 6 months)
-        const now = new Date();
+        // Chart buckets
         const months = [], revByMonth = [];
-        for (let i=5; i>=0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-            months.push(d.toLocaleDateString('en-IN',{month:'short'}));
-            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            const rev = approved.filter(b => b.created_at?.startsWith(key)).reduce((s,b)=>s+(b.estimated_price||0),0);
-            revByMonth.push(rev);
+        let bucketType = 'month', numBuckets = 6;
+        if (preset==='7d')       { bucketType='day'; numBuckets=7; }
+        else if (preset==='30d') { bucketType='day'; numBuckets=30; }
+        else if (preset==='3m')  numBuckets=3;
+        else if (preset==='1y')  numBuckets=12;
+        else if (preset==='custom' && filterFrom) {
+            const days=Math.round((new Date(filterTo)-new Date(filterFrom))/864e5);
+            bucketType=days<=31?'day':'month'; numBuckets=bucketType==='day'?days+1:Math.ceil(days/30)+1;
+        }
+        if (bucketType==='day') {
+            for (let i=numBuckets-1;i>=0;i--) {
+                const d=new Date(now-i*864e5), key=d.toISOString().slice(0,10);
+                months.push(d.toLocaleDateString('en-IN',{day:'numeric',month:'short'}));
+                revByMonth.push(approved.filter(b=>(b.created_at||'').slice(0,10)===key).reduce((s,b)=>s+(b.estimated_price||0),0));
+            }
+        } else {
+            for (let i=numBuckets-1;i>=0;i--) {
+                const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+                months.push(d.toLocaleDateString('en-IN',{month:'short',year:'2-digit'}));
+                const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+                revByMonth.push(approved.filter(b=>(b.created_at||'').slice(0,7)===key).reduce((s,b)=>s+(b.estimated_price||0),0));
+            }
         }
 
-        // Top cars by revenue
-        const carRev = {};
-        approved.forEach(b => { carRev[b.car_name] = (carRev[b.car_name]||0) + (b.estimated_price||0); });
-        const topCars = Object.entries(carRev).sort((a,b)=>b[1]-a[1]).slice(0,5);
+        // Top cars
+        const carRev={};
+        approved.forEach(b=>{ carRev[b.car_name]=(carRev[b.car_name]||0)+(b.estimated_price||0); });
+        const topCars=Object.entries(carRev).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+        const PLbl={'7d':'Last 7 Days','30d':'Last 30 Days','3m':'Last 3 Months','6m':'Last 6 Months','1y':'Last 12 Months','custom':'Custom Range'};
+        const rangeLabel=PLbl[preset]||'Last 6 Months';
 
         c.innerHTML = `
-        <div style="margin-bottom:24px"><h2 class="font-display text-2xl font-extrabold">Analytics</h2><p class="text-sm mt-1" style="color:var(--muted)">Revenue & booking overview</p></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:28px">
-            ${[
-                ['\uD83D\uDCB0 Total Revenue', fmtCur(totalRev), 'var(--accent)', approved.length + ' approved'],
-                ['\uD83D\uDCC5 This Month', fmtCur(revByMonth.at(-1)||0), 'var(--green)', 'revenue'],
-                ['\uD83D\uDCCA Avg Booking', fmtCur(avgVal), 'var(--fg)', 'per booking'],
-                ['\u23F3 Pending', pending.length, 'var(--accent)', 'awaiting action'],
-                ['\uD83D\uDE97 Total Bookings', bk.length, 'var(--muted)', 'all time'],
-            ].map(([lbl,val,col,sub])=>`
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+            <div><h2 class="font-display text-2xl font-extrabold">Analytics</h2>
+            <p class="text-sm mt-1" style="color:var(--muted)">Showing: <strong style="color:var(--fg)">${rangeLabel}</strong></p></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+                ${['7d','30d','3m','6m','1y'].map(p=>`<button onclick="AdminCtrl.analytics('${p}')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:5px 11px;${preset===p?'background:var(--accent);color:#0a0a0b;border-color:var(--accent);':''}">${PLbl[p].replace('Last ','')}</button>`).join('')}
+                <button onclick="document.getElementById('an-custom-row').classList.toggle('hidden')" class="btn btn-ghost btn-sm" style="font-size:11px;padding:5px 11px;${preset==='custom'?'background:var(--accent);color:#0a0a0b;border-color:var(--accent);':''}">Custom ▾</button>
+            </div>
+        </div>
+        <div id="an-custom-row" class="${preset==='custom'?'':'hidden'}" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:16px">
+            <label style="font-size:12px;color:var(--muted)">From</label>
+            <input type="date" id="an-from" value="${filterFrom||''}" class="inp" style="width:150px;padding:6px 10px;font-size:13px">
+            <label style="font-size:12px;color:var(--muted)">To</label>
+            <input type="date" id="an-to"   value="${filterTo||''}"  class="inp" style="width:150px;padding:6px 10px;font-size:13px">
+            <button onclick="AdminCtrl.analytics('custom',document.getElementById('an-from').value,document.getElementById('an-to').value)" class="btn btn-primary btn-sm">Apply</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-bottom:24px">
+            ${[['\uD83D\uDCB0 Revenue',fmtCur(totalRev),'var(--accent)',approved.length+' approved'],['\uD83D\uDCCA Avg Booking',fmtCur(avgVal),'var(--fg)','per booking'],['\u23F3 Pending',pending.length,'var(--accent)','awaiting action'],['\u274C Cancelled',cancelled,'#ef4444','in period'],['\uD83D\uDE97 Total Trips',bkF.length,'var(--muted)','all statuses']].map(([lbl,val,col,sub])=>`
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;text-align:center">
                 <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">${lbl}</div>
                 <div class="font-display font-extrabold text-2xl" style="color:${col}">${val}</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:4px">${sub}</div>
             </div>`).join('')}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:24px">
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
-                <div style="font-size:13px;font-weight:700;margin-bottom:16px">Revenue (Last 6 Months)</div>
-                <canvas id="rev-chart" height="180"></canvas>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-bottom:24px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
+                <div style="font-size:13px;font-weight:700;margin-bottom:16px">Revenue — ${rangeLabel}</div>
+                <div style="position:relative;height:200px"><canvas id="rev-chart"></canvas></div>
             </div>
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
                 <div style="font-size:13px;font-weight:700;margin-bottom:16px">Booking Status</div>
-                <canvas id="status-chart" height="180"></canvas>
+                <div style="position:relative;height:200px"><canvas id="status-chart"></canvas></div>
             </div>
         </div>
-        ${topCars.length ? `<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px">
+        ${topCars.length?`<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px">
             <div style="font-size:13px;font-weight:700;margin-bottom:14px">Top Cars by Revenue</div>
-            ${topCars.map(([name,rev],i)=>{const pct=topCars[0][1]?Math.round(rev/topCars[0][1]*100):0;return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><div style="font-size:12px;font-weight:700;color:var(--muted);width:16px">${i+1}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div><div style="height:4px;background:var(--border);border-radius:4px;margin-top:4px"><div style="height:4px;background:var(--accent);border-radius:4px;width:${pct}%"></div></div></div><div style="font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0">${fmtCur(rev)}</div></div>`;}).join('')}
-        </div>` : ''}
-        `;
+            ${topCars.map(([name,rev],i)=>{const pct=topCars[0][1]?Math.round(rev/topCars[0][1]*100):0;return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div style="font-size:12px;font-weight:700;color:var(--muted);width:16px">${i+1}</div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</div><div style="height:4px;background:var(--border);border-radius:4px;margin-top:5px"><div style="height:4px;background:var(--accent);border-radius:4px;width:${pct}%;transition:width .4s"></div></div></div><div style="font-size:13px;font-weight:700;color:var(--accent);flex-shrink:0">${fmtCur(rev)}</div></div>`;}).join('')}
+        </div>`:''}`;
 
-        // Chart.js — load if needed
         const drawCharts = () => {
             const Chart = window.Chart;
             if (!Chart) return;
-            new Chart(document.getElementById('rev-chart'), { type:'bar', data:{ labels:months, datasets:[{ data:revByMonth, backgroundColor:'rgba(245,158,11,.7)', borderColor:'rgba(245,158,11,1)', borderWidth:1.5, borderRadius:4 }] }, options:{ plugins:{legend:{display:false}}, scales:{ y:{ticks:{color:'#6b6b72',callback:v=>'₹'+(v>=1000?Math.round(v/1000)+'k':v)},grid:{color:'rgba(255,255,255,.04)'}}, x:{ticks:{color:'#6b6b72'},grid:{display:false}} }, responsive:true, maintainAspectRatio:false } });
-            const cancelled = bk.filter(b=>b.status==='cancelled').length, rejected = bk.filter(b=>b.status==='rejected').length;
-            new Chart(document.getElementById('status-chart'), { type:'doughnut', data:{ labels:['Approved','Pending','Rejected','Cancelled'], datasets:[{ data:[approved.length, pending.length, rejected, cancelled], backgroundColor:['rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(239,68,68,.7)','rgba(107,107,114,.5)'], borderWidth:0 }] }, options:{ plugins:{legend:{position:'bottom',labels:{color:'#6b6b72',padding:12,font:{size:11}}}}, responsive:true, maintainAspectRatio:false } });
+            ['rev-chart','status-chart'].forEach(id=>{
+                const el=document.getElementById(id);
+                if (el) { const ex=Chart.getChart(el); if(ex) ex.destroy(); }
+            });
+            const tickCol = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#888';
+            const gridCol = getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,.06)';
+            new Chart(document.getElementById('rev-chart'),{
+                type:'bar',
+                data:{labels:months,datasets:[{data:revByMonth,backgroundColor:'rgba(245,158,11,.7)',borderColor:'rgba(245,158,11,1)',borderWidth:1.5,borderRadius:4}]},
+                options:{plugins:{legend:{display:false}},scales:{y:{ticks:{color:tickCol,callback:v=>'₹'+(v>=1000?Math.round(v/1000)+'k':v)},grid:{color:gridCol}},x:{ticks:{color:tickCol,maxTicksLimit:8},grid:{display:false}}},responsive:true,maintainAspectRatio:false}
+            });
+            new Chart(document.getElementById('status-chart'),{
+                type:'doughnut',
+                data:{labels:['Approved','Pending','Rejected','Cancelled'],datasets:[{data:[approved.length,pending.length,rejected,cancelled],backgroundColor:['rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(239,68,68,.7)','rgba(107,107,114,.5)'],borderWidth:0}]},
+                options:{plugins:{legend:{position:'bottom',labels:{color:tickCol,padding:12,font:{size:11}}}},responsive:true,maintainAspectRatio:false}
+            });
         };
         if (!window.Chart) {
-            const s = document.createElement('script');
-            s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-            s.onload = drawCharts;
-            document.head.appendChild(s);
-        } else { setTimeout(drawCharts, 50); }
+            const s=document.createElement('script');
+            s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+            s.onload=drawCharts; document.head.appendChild(s);
+        } else { setTimeout(drawCharts,50); }
     },
 
     async bookingCalendar() {
