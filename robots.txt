@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://cruzio.in/sitemap.xml
+
+# Crawl-delay (optional, be gentle)
+Crawl-delay: 5
+
+# Block admin/auth paths from indexing
+Disallow: /#admin
+Disallow: /#staff
+Disallow: /#partner
